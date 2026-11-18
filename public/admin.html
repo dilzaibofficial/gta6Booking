@@ -39,10 +39,10 @@
   <main class="wrap">
     <section id="t-schedule">
       <div class="stats" id="stats"></div>
-      <div class="sec-h"><h2>Day schedule</h2><span class="mu" style="font-size:.85rem">Tap + to book a free time, or tap a coloured box to edit</span></div>
+      <div class="sec-h"><h2>Day schedule</h2><span class="mu" style="font-size:.85rem">Past days and hours stay visible here, but customers can't see them</span></div>
       <div class="chips" id="dayChips"></div>
       <div class="tlwrap" id="tl"></div>
-      <div class="legend"><span><i style="background:var(--tl)"></i>Booked, advance received</span><span><i style="background:var(--am)"></i>Booked, advance pending</span><span><i style="border:1.5px dashed var(--tl)"></i>Free (tap +)</span></div>
+      <div class="legend"><span><i style="background:var(--pk);width:3px"></i>Now</span><span><i style="background:var(--tl)"></i>Booked, advance received</span><span><i style="background:var(--am)"></i>Booked, advance pending</span><span><i style="border:1.5px dashed var(--tl)"></i>Free (tap +)</span></div>
       <h2 style="font-size:1.1rem;margin-bottom:10px">Booked on this day</h2>
       <div id="dayList"></div>
     </section>
@@ -124,6 +124,13 @@
     <button class="btn d" id="bdel" type="button" hidden>Delete booking</button><button class="btn g" id="bcancel" type="button">Close</button><button class="btn" id="bsave" type="button">Save</button></div>
 </dialog>
 
+<dialog id="cdlg" class="cf"><div class="cfi">
+  <div class="cf-i red" id="cic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg></div>
+  <h3 id="cti"></h3><p id="cms"></p>
+  <div class="row" style="margin-top:20px;flex-wrap:nowrap"><button class="btn g" id="cno" type="button" style="flex:1">Cancel</button><button class="btn dng" id="cok" type="button" style="flex:1"></button></div>
+</div></dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
 <dialog id="pdlg"><div class="between"><h2>Advance screenshot</h2><button class="btn g s" id="pclose">Close</button></div><div id="pbox"></div></dialog>
 
 <script>
@@ -149,7 +156,24 @@ const wa = p => { let d = String(p).replace(/\D/g, ''); if (d.startsWith('0')) d
 const adv = b => `<span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span>`;
 const showD = d => d.showModal ? d.showModal() : d.setAttribute('open', '');
 const closeD = d => d.close ? d.close() : d.removeAttribute('open');
-function toast(m, e) { const t = document.createElement('div'); t.className = 'toast' + (e ? ' e' : ''); t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 2800); }
+function toast(m, e) {
+  const k = e === 'w' ? 'wn' : e ? 'er' : 'ok', t = document.createElement('div');
+  t.className = 'tt ' + k; t.setAttribute('role', 'status');
+  t.innerHTML = '<span class="ti">' + (k === 'ok' ? '✓' : '!') + '</span><span class="tm"></span>';
+  t.lastChild.textContent = m; t.onclick = () => t.remove(); $('toasts').append(t);
+  setTimeout(() => t.remove(), k === 'er' ? 5000 : 3000);
+}
+let settle = null;
+function ask(title, msg, ok = 'Delete', danger = true) {
+  $('cti').textContent = title; $('cms').textContent = msg; $('cok').textContent = ok;
+  $('cok').className = 'btn ' + (danger ? 'dng' : ''); $('cic').className = 'cf-i ' + (danger ? 'red' : '');
+  showD($('cdlg')); $('cno').focus();
+  return new Promise(r => { settle = r; });
+}
+const answer = v => { const s = settle; settle = null; closeD($('cdlg')); s && s(v); };
+$('cok').onclick = () => answer(true); $('cno').onclick = () => answer(false);
+$('cdlg').addEventListener('close', () => answer(false));
+$('cdlg').addEventListener('click', e => { if (e.target === $('cdlg')) answer(false); });
 
 async function api(a, body) {
   const get = body === undefined || a === 'proof';
@@ -195,16 +219,17 @@ function renderAll() {
 function renderTimeline() {
   const dates = [...new Set(D.slots.map(s => s.date))];
   if (!dates.includes(selDay)) selDay = dates.find(d => d >= nowLocal().slice(0, 10)) || dates[0] || null;
-  $('dayChips').innerHTML = dates.map(d => `<button class="tab ${d === selDay ? 'on' : ''}" data-day="${d}">${dS(d)}<small>${D.bookings.filter(b => b.date === d).length} bookings</small></button>`).join('');
+  $('dayChips').innerHTML = dates.map(d => `<button class="tab ${d === selDay ? 'on' : ''} ${endOf(D.slots.filter(s => s.date === d).pop()) <= new Date() ? 'past' : ''}" data-day="${d}">${dS(d)}<small>${D.bookings.filter(b => b.date === d).length} bookings</small></button>`).join('');
   if (!selDay) { $('tl').innerHTML = '<div class="empty">No slots yet.<br><br><button class="btn" data-go="slots">Add slots</button></div>'; $('dayList').innerHTML = ''; return; }
   const keep = document.querySelector('.tls')?.scrollLeft || 0;
   const ds = D.slots.filter(s => s.date === selDay);
   const t0 = Math.floor(mm(ds[0].start) / 60) * 60, t1 = Math.ceil(mm(ds[ds.length - 1].end) / 60) * 60, W = (t1 - t0) * PPM, px = m => (m - t0) * PPM;
   let ticks = ''; for (let m = t0; m < t1; m += 60) ticks += `<div class="tick" style="left:${px(m)}px">${hr12(m / 60)}</div>`;
+  const nm = (new Date() - at(selDay, '00:00')) / 60000, nowl = nm > t0 && nm < t1 ? `<i class="nowl" style="left:${px(nm)}px"></i>` : '';
   const rows = ['fat', 'slim'].map(c => {
-    const free = ds.filter(s => !occ[s.id + c]).map(s => `<button class="cellf" data-book="${s.id}" data-con="${c}" style="left:${px(mm(s.start)) + 1}px;width:${(mm(s.end) - mm(s.start)) * PPM - 2}px" aria-label="Book ${NAMES[c]} ${t12(s.start)}">+</button>`).join('');
+    const free = ds.filter(s => !occ[s.id + c]).map(s => `<button class="cellf ${endOf(s) <= new Date() ? 'past' : ''}" data-book="${s.id}" data-con="${c}" style="left:${px(mm(s.start)) + 1}px;width:${(mm(s.end) - mm(s.start)) * PPM - 2}px" aria-label="Book ${NAMES[c]} ${t12(s.start)}">+</button>`).join('');
     const blks = D.bookings.filter(b => b.date === selDay && b.console === c).map(b => `<button class="blk ${b.received ? 'ok' : 'pend'}" data-edit="${b.id}" style="left:${px(mm(b.start)) + 1}px;width:${(mm(b.end) - mm(b.start)) * PPM - 2}px"><b>${esc(b.name)}</b><small>until ${t12(b.end)} (${hrs(b.start, b.end)})</small></button>`).join('');
-    return `<div class="tlr"><div class="tll">${NAMES[c]}</div><div class="trk" style="width:${W}px">${free}${blks}</div></div>`;
+    return `<div class="tlr"><div class="tll">${NAMES[c]}</div><div class="trk" style="width:${W}px">${free}${blks}${nowl}</div></div>`;
   }).join('');
   $('tl').innerHTML = `<div class="tls"><div class="tlin"><div class="tlr tlh"><div class="tll"></div><div class="trk" style="width:${W}px">${ticks}</div></div>${rows}</div></div>`;
   document.querySelector('.tls').scrollLeft = keep;
@@ -311,7 +336,7 @@ function compress(file) {
 $('bfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { proof = await compress(f); showPrev(proof); } catch (x) { $('berr').textContent = x.message; } };
 $('brm').onclick = () => { proof = ''; $('bfile').value = ''; showPrev(null); };
 $('bcancel').onclick = () => closeD($('dlg'));
-$('bdel').onclick = async () => { if (!confirm('Delete this booking?')) return; try { await api('del_booking', { id: editing.id }); closeD($('dlg')); toast('Booking deleted'); last = ''; refresh(); } catch (e) { $('berr').textContent = e.message; } };
+$('bdel').onclick = async () => { if (!(await ask('Delete this booking?', 'This will free the time for this PS5. You cannot undo this.', 'Delete booking'))) return; try { await api('del_booking', { id: editing.id }); closeD($('dlg')); toast('Booking deleted'); last = ''; refresh(); } catch (e) { $('berr').textContent = e.message; } };
 $('bsave').onclick = async () => {
   const body = { slot_id: +$('bslot').value, end_slot_id: +$('bend').value, console: $('bcon').value, name: $('bname').value, phone: $('bphone').value, advance: +$('badv').value || 0, received: $('brec').checked, booked_at: $('bat').value, notes: $('bnotes').value };
   if (proof !== undefined) body.proof = proof;
@@ -333,8 +358,8 @@ document.addEventListener('click', async e => {
     else if (g('book')) openDlg(null, +g('book'), g('con'));
     else if (g('edit')) openDlg(D.bookings.find(b => b.id == g('edit')));
     else if (g('proof')) { const d = await api('proof', g('proof')); $('pbox').innerHTML = `<img src="${d.proof}" alt="Advance screenshot">`; showD($('pdlg')); }
-    else if (g('delbk') && confirm('Delete this booking?')) { await api('del_booking', { id: +g('delbk') }); toast('Booking deleted'); last = ''; refresh(); }
-    else if (g('delslot') && confirm('Delete this slot?')) { await api('del_slot', { id: +g('delslot') }); toast('Slot deleted'); last = ''; refresh(); }
+    else if (g('delbk') && await ask('Delete this booking?', 'This will free the time for this PS5. You cannot undo this.', 'Delete booking')) { await api('del_booking', { id: +g('delbk') }); toast('Booking deleted'); last = ''; refresh(); }
+    else if (g('delslot') && await ask('Delete this slot?', 'Customers will no longer see this time slot.', 'Delete slot')) { await api('del_slot', { id: +g('delslot') }); toast('Slot deleted'); last = ''; refresh(); }
   } catch (x) { toast(x.message, 1); }
 });
 $('fab').onclick = () => openDlg(null);

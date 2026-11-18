@@ -46,6 +46,10 @@ const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m %
 const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const validProof = p => p === '' || (typeof p === 'string' && p.startsWith('data:image/') && p.length < 3.8e6);
 
+const TZ = +(process.env.TZ_OFFSET_MIN || 300); // Pakistan = UTC+5 (300 minutes)
+const nowAbs = () => Math.floor(Date.now() / 60000) + TZ;
+const absOf = (d, t) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 60000 + mins(t);
+
 const SLOTS_SQL = `SELECT s.id,s.date,s.start,s.end,s.note,(SELECT group_concat(console) FROM booking_slots WHERE slot_id=s.id) taken FROM slots s ORDER BY s.date,s.start`;
 
 module.exports = async (req, res) => {
@@ -55,7 +59,12 @@ module.exports = async (req, res) => {
     await init();
     const a = req.query.a, b = req.body && typeof req.body === 'object' ? req.body : {};
 
-    if (a === 'slots') return out(200, { slots: await q(SLOTS_SQL), now: Date.now() });
+    if (a === 'slots') {
+      // customers see the slot that is running now and everything after it; ended slots and past days are hidden
+      const n = nowAbs();
+      const slots = (await q(SLOTS_SQL)).filter(s => absOf(s.date, s.end) > n).map(s => ({ ...s, running: absOf(s.date, s.start) <= n }));
+      return out(200, { slots, now: Date.now() });
+    }
 
     if (a === 'login') {
       if (req.method !== 'POST') return out(405, { error: 'POST required' });

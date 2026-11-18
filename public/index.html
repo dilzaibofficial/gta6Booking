@@ -32,7 +32,6 @@ let slots = [], day = null, html = '', dur = 0; // dur: 0 = single slots, otherw
 const t12 = t => { let h = +t.slice(0, 2); const m = +t.slice(3), nx = h > 24 || (h === 24 && m > 0); h %= 24; return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM') + (nx ? ' (+1 day)' : ''); };
 const at = (d, t) => { const x = new Date(d + 'T00:00:00'); x.setHours(+t.slice(0, 2), +t.slice(3), 0, 0); return x; };
 const dLabel = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const over = s => at(s.date, s.end) <= new Date();
 const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
 
 // Build the start times for one day. For 3 to 5 hour sessions, a start time only appears
@@ -47,14 +46,14 @@ function cardsFor(list) {
       win.push(n); end = n.end; total += mins(n.end) - mins(n.start); k++;
     }
     if (!win) return;
-    out.push({ s, end, taken: new Set(win.flatMap(x => x.taken ? x.taken.split(',') : [])) });
+    out.push({ s, end, running: !!s.running, taken: new Set(win.flatMap(x => x.taken ? x.taken.split(',') : [])) });
   });
   return out;
 }
 
 function render() {
   document.querySelectorAll('#chips [data-h]').forEach(b => b.classList.toggle('on', +b.dataset.h === dur));
-  const live = slots.filter(s => !over(s));
+  const live = slots; // the server already hides ended slots (Pakistan time)
   const days = [...new Set(live.map(s => s.date))];
   if (!days.includes(day)) day = days[0] || null;
   const byDay = d => cardsFor(live.filter(s => s.date === d));
@@ -65,7 +64,7 @@ function render() {
     const len = dur ? ` (${dur} hours)` : '';
     const rows = ['fat', 'slim'].map(n => `<div class="con"><span>${NAMES[n]}</span><span class="pill ${c.taken.has(n) ? 'bk' : 'free'}">${c.taken.has(n) ? 'Booked' : 'Available'}</span></div>`).join('');
     const msg = encodeURIComponent(`Hello, I would like to book a GTA 6 session: ${dLabel(c.s.date)}, ${t12(c.s.start)} to ${t12(c.end)}${len}`);
-    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(c.s.start)} <small>to ${t12(c.end)}${len}</small></div>${rows}` +
+    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(c.s.start)} <small>to ${t12(c.end)}${len}</small></div>${c.running ? '<span class="pill am" style="align-self:flex-start">Running now</span>' : ''}${rows}` +
       (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 spots open' : '1 spot open'}: book on WhatsApp</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Fully booked</span>`) + '</article>';
   }
   const empty = days.length ? (dur ? '<div class="empty">No start time has enough continuous slots for this length on this day. Try another day or a shorter session.</div>' : '') : '<div class="empty">No slots available right now. Please check back soon.</div>';
