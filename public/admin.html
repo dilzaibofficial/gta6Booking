@@ -71,14 +71,15 @@
         <div class="seg" id="seg"><button data-m="bulk" class="on">Many slots (auto)</button><button data-m="single">One slot</button></div>
         <div class="f">
           <label>Date<input type="date" id="sdate" min="2026-11-19" value="2026-11-19"></label>
-          <label>From<input type="time" id="sstart" value="13:00"></label>
-          <label>To<input type="time" id="send" value="23:00"></label>
+          <label>Starts at<input type="time" id="sstart" value="13:00"></label>
+          <label><span id="ltotal">Total hours to cover</span><input type="number" id="stotal" min="0.5" max="48" step="0.5" value="24" inputmode="decimal"></label>
           <label class="bulk">Slot length<select id="shrs"><option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option><option value="3">3 hours</option></select></label>
           <label class="bulk">Repeat for days<input type="number" id="sdays" min="1" max="31" value="1" inputmode="numeric"></label>
         </div>
+        <div class="row bulk" style="margin-top:12px"><span class="mu" style="font-size:.85rem">Quick:</span><button class="btn g s" type="button" data-q="24">24 hours from start</button><button class="btn g s" type="button" data-q="12">12 hours</button><button class="btn g s" type="button" data-q="full">Full day (12 AM to 12 AM)</button></div>
         <div class="pv" id="pv"></div>
         <button class="btn t" id="addSlots" style="width:100%">Create slots</button>
-        <p class="mu" style="font-size:.85rem;margin-top:10px">Bookings start on 19 Nov 2026 at 1:00 PM. Customers can book several slots in a row, so 1-hour slots work best.</p>
+        <p class="mu" style="font-size:.85rem;margin-top:10px">Bookings start on 19 Nov 2026 at 1:00 PM. Slots can run past midnight (shown as +1 day) and stay under the day they started. Customers can book several slots in a row, so 1-hour slots work best.</p>
       </div>
       <div class="card"><h2>Existing slots</h2><div id="slotList"></div></div>
     </section>
@@ -133,14 +134,15 @@ let token = sessionStorage.getItem('tk'), D = { slots: [], bookings: [] }, last 
 let tab = sessionStorage.getItem('tab') || 'schedule';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
-const hr12 = h => ((h % 12) || 12) + (h >= 12 ? ' PM' : ' AM');
+const t12 = t => { let h = +t.slice(0, 2); const m = +t.slice(3), nx = h > 24 || (h === 24 && m > 0); h %= 24; return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM') + (nx ? ' (+1 day)' : ''); };
+const at = (d, t) => { const x = new Date(d + 'T00:00:00'); x.setHours(+t.slice(0, 2), +t.slice(3), 0, 0); return x; };
+const hr12 = h => ((h % 24 % 12) || 12) + (h % 24 >= 12 ? ' PM' : ' AM') + (h > 24 ? ' +1' : '');
 const hh = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const mm = t => +t.slice(0, 2) * 60 + +t.slice(3);
 const hrs = (a, b) => Math.round((mm(b) - mm(a)) / 60 * 100) / 100 + 'h';
 const dL = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const dS = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const startOf = s => new Date(s.date + 'T' + s.start + ':00'), endOf = s => new Date(s.date + 'T' + s.end + ':00');
+const startOf = s => at(s.date, s.start), endOf = s => at(s.date, s.end);
 const covered = b => D.slots.filter(s => s.date === b.date && s.start >= b.start && s.end <= b.end);
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 const wa = p => { let d = String(p).replace(/\D/g, ''); if (d.startsWith('0')) d = '92' + d.slice(1); return 'https://wa.me/' + d; };
@@ -231,28 +233,33 @@ function renderSlotList() {
 /* add slots */
 function setMode(m) {
   mode = m; document.querySelectorAll('#seg [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
-  document.querySelectorAll('.bulk').forEach(x => x.hidden = m !== 'bulk'); preview();
+  document.querySelectorAll('.bulk').forEach(x => x.hidden = m !== 'bulk'); $('ltotal').textContent = m === 'bulk' ? 'Total hours to cover' : 'Slot length (hours)'; preview();
 }
 function preview() {
-  const d = $('sdate').value, a = $('sstart').value, b = $('send').value; let list = [];
-  if (d && a && b) {
-    if (mode === 'bulk') { const dur = Math.round(+$('shrs').value * 60); for (let m = mm(a); m + dur <= mm(b); m += dur) list.push([m, m + dur]); }
-    else if (mm(b) > mm(a)) list.push([mm(a), mm(b)]);
+  const d = $('sdate').value, a = $('sstart').value, tot = Math.round(+$('stotal').value * 60); let list = [];
+  if (d && a && tot >= 30 && tot <= 2880) {
+    const f = mm(a);
+    if (mode === 'bulk') { const dur = Math.round(+$('shrs').value * 60); for (let m = f; m + dur <= f + tot; m += dur) list.push([m, m + dur]); }
+    else list.push([f, f + tot]);
   }
-  const days = mode === 'bulk' ? Math.min(Math.max(+$('sdays').value || 1, 1), 31) : 1;
-  const early = d && (d < '2026-11-19' || (d === '2026-11-19' && a < '13:00'));
+  const days = mode === 'bulk' ? Math.min(Math.max(+$('sdays').value || 1, 1), 31) : 1, step = Math.max(1, Math.ceil(tot / 1440));
+  const early = d && a && (d < '2026-11-19' || (d === '2026-11-19' && a < '13:00'));
   $('pv').className = 'pv' + (early || !list.length ? ' w' : '');
   $('pv').textContent = early ? 'Bookings open on 19 Nov 2026 at 1:00 PM. Earlier slots are not allowed.'
-    : !list.length ? 'Check the times: the end time must be after the start time, and the slot length must fit.'
-    : `${list.length * days} slot(s) will be created: ${t12(hh(list[0][0]))} to ${t12(hh(list[list.length - 1][1]))}${days > 1 ? ` every day for ${days} days from ${dS(d)}` : ' on ' + dS(d)}.`;
+    : !list.length ? 'Check the values: total hours must be between 0.5 and 48, and the slot length must fit inside it.'
+    : `${list.length * days} slot(s) will be created: ${t12(hh(list[0][0]))} to ${t12(hh(list[list.length - 1][1]))}` + (days > 1 ? ` on ${dS(d)}, then again every ${step} day(s), ${days} times in total.` : ` starting ${dS(d)}.`);
 }
+document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
+  if (b.dataset.q === 'full') { $('sstart').value = '00:00'; $('stotal').value = 24; } else $('stotal').value = b.dataset.q;
+  preview();
+});
 $('seg').onclick = e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); };
-['sdate', 'sstart', 'send', 'shrs', 'sdays'].forEach(i => $(i).addEventListener('input', preview));
+['sdate', 'sstart', 'stotal', 'shrs', 'sdays'].forEach(i => $(i).addEventListener('input', preview));
 $('addSlots').onclick = async () => {
   $('addSlots').disabled = true;
   try {
-    const d = await api('add_slots', { mode, date: $('sdate').value, start: $('sstart').value, end: $('send').value, from: $('sstart').value, to: $('send').value, hours: $('shrs').value, days: $('sdays').value });
-    toast(d.added + ' slot(s) added' + (d.skipped ? ', ' + d.skipped + ' already existed' : '')); last = ''; refresh(); setTab('schedule');
+    const d = await api('add_slots', { mode, date: $('sdate').value, start: $('sstart').value, from: $('sstart').value, total: $('stotal').value, hours: $('shrs').value, days: $('sdays').value });
+    toast(d.added + ' slot(s) added' + (d.skipped ? ', ' + d.skipped + ' already existed or overlapped' : '')); last = ''; refresh(); setTab('schedule');
   } catch (e) { toast(e.message, 1); }
   $('addSlots').disabled = false;
 };

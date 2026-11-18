@@ -29,9 +29,10 @@ const NAMES = { fat: 'PS5 Fat', slim: 'PS5 Slim' };
 const $ = id => document.getElementById(id);
 let slots = [], day = null, html = '', dur = 0; // dur: 0 = single slots, otherwise hours (3, 4, 5)
 
-const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
+const t12 = t => { let h = +t.slice(0, 2); const m = +t.slice(3), nx = h > 24 || (h === 24 && m > 0); h %= 24; return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM') + (nx ? ' (+1 day)' : ''); };
+const at = (d, t) => { const x = new Date(d + 'T00:00:00'); x.setHours(+t.slice(0, 2), +t.slice(3), 0, 0); return x; };
 const dLabel = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const over = s => new Date(s.date + 'T' + s.end + ':00') <= new Date();
+const over = s => at(s.date, s.end) <= new Date();
 const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
 
 // Build the start times for one day. For 3 to 5 hour sessions, a start time only appears

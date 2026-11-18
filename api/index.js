@@ -40,7 +40,7 @@ function authed(req) {
   if (s.length !== e.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(e))) return false;
   try { const d = JSON.parse(Buffer.from(p, 'base64url').toString()); return d.exp > Date.now() ? d : false; } catch { return false; }
 }
-const validSlot = (d, s, e) => /^\d{4}-\d\d-\d\d$/.test(d) && /^\d\d:\d\d$/.test(s) && /^\d\d:\d\d$/.test(e) && e > s && (d > START_DATE || (d === START_DATE && s >= START_TIME));
+const validSlot = (d, s, e) => /^\d{4}-\d\d-\d\d$/.test(d) && /^\d\d:[0-5]\d$/.test(s) && /^\d\d:[0-5]\d$/.test(e) && e > s && (d > START_DATE || (d === START_DATE && s >= START_TIME));
 const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
 const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
@@ -88,16 +88,29 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return out(405, { error: 'POST required' });
 
     if (a === 'add_slots') {
+      // Times can go past midnight: "25:00" means 1:00 AM of the next day. Such slots stay under the day they started.
       const date = str(b.date, 10), note = str(b.note, 100), list = [];
+      const from = str(b.from || b.start, 5);
+      if (!/^\d\d:[0-5]\d$/.test(from) || !/^\d{4}-\d\d-\d\d$/.test(date)) return out(400, { error: 'Enter a valid date and start time' });
+      const f0 = mins(from);
+      const total = b.total !== undefined ? Math.round(+b.total * 60) : mins(str(b.to, 5)) - f0;
+      if (!(total >= 30) || total > 2880) return out(400, { error: 'Total hours must be between 0.5 and 48' });
       if (b.mode === 'bulk') {
-        const from = str(b.from, 5), to = str(b.to, 5), dur = Math.round(+b.hours * 60), days = Math.min(Math.max(+b.days || 1, 1), 31);
-        if (!(dur >= 30) || !/^\d\d:\d\d$/.test(from) || !/^\d\d:\d\d$/.test(to)) return out(400, { error: 'Enter a valid From, To and slot length' });
-        for (let d = 0; d < days; d++) for (let m = mins(from); m + dur <= mins(to); m += dur) list.push([addDays(date, d), hhmm(m), hhmm(m + dur)]);
-      } else list.push([date, str(b.start, 5), str(b.end, 5)]);
+        const dur = Math.round(+b.hours * 60), days = Math.min(Math.max(+b.days || 1, 1), 31), step = Math.max(1, Math.ceil(total / 1440));
+        if (!(dur >= 30)) return out(400, { error: 'Enter a valid slot length' });
+        for (let d = 0; d < days; d++) for (let m = f0; m + dur <= f0 + total; m += dur) list.push([addDays(date, d * step), hhmm(m), hhmm(m + dur)]);
+      } else list.push([date, hhmm(f0), hhmm(f0 + total)]);
       const good = list.filter(s => validSlot(...s));
       if (!good.length) return out(400, { error: 'Slots must start on or after 19 Nov 2026, 1:00 PM, and the end time must be after the start time' });
-      const rs = await db.batch(good.map(s => ({ sql: 'INSERT OR IGNORE INTO slots(date,start,end,note) VALUES(?,?,?,?)', args: [...s, note] })), 'write');
-      const added = rs.reduce((n, r) => n + r.rowsAffected, 0);
+      // skip slots that overlap an existing slot (also across midnight)
+      const absM = (d, t) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 60000 + mins(t);
+      const ex = (await q('SELECT date,start,"end" FROM slots')).map(e => [absM(e.date, e.start), absM(e.date, e.end)]);
+      const fresh = good.filter(s => { const x = absM(s[0], s[1]), y = absM(s[0], s[2]); return !ex.some(e => x < e[1] && y > e[0]); });
+      let added = 0;
+      if (fresh.length) {
+        const rs = await db.batch(fresh.map(s => ({ sql: 'INSERT OR IGNORE INTO slots(date,start,end,note) VALUES(?,?,?,?)', args: [...s, note] })), 'write');
+        added = rs.reduce((n, r) => n + r.rowsAffected, 0);
+      }
       return out(200, { added, skipped: list.length - added });
     }
 
