@@ -2,18 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#120c24">
 <meta name="robots" content="noindex">
 <title>Admin | GTA 6 Booking</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/admin.css">
 </head>
 <body>
 <div class="login" id="login">
   <div class="card">
     <h2>Admin login</h2>
     <div class="f" style="grid-template-columns:1fr">
-      <label>Username<input id="u" autocomplete="username"></label>
+      <label>Username<input id="u" autocomplete="username" autocapitalize="none" autocorrect="off"></label>
       <label>Password<input id="p" type="password" autocomplete="current-password"></label>
       <div class="err" id="lerr"></div>
       <button class="btn" id="lbtn">Login</button>
@@ -21,185 +23,275 @@
   </div>
 </div>
 
-<div class="wrap" id="app" hidden>
-  <div class="bar">
-    <h1 style="font-size:1.7rem">GTA 6 Bookings</h1>
+<div id="app" hidden>
+  <header class="top"><div class="wrap">
+    <b class="brand">Gaming Zone Admin</b>
     <div class="row"><span class="live"><span class="dot"></span>Live</span><a class="btn g s" href="/" target="_blank">Customer page</a><button class="btn g s" id="logout">Logout</button></div>
-  </div>
-  <div class="stats" id="stats"></div>
+  </div></header>
 
-  <div class="card">
-    <h2>Create new slots</h2>
-    <div class="f">
-      <label>Mode<select id="mode"><option value="single">Single slot</option><option value="bulk">Multiple slots (auto)</option></select></label>
-      <label>Date<input type="date" id="sdate" min="2026-11-19" value="2026-11-19"></label>
-      <label id="lS">Start<input type="time" id="sstart" value="13:00"></label>
-      <label id="lE">End<input type="time" id="send" value="14:00"></label>
-      <label class="bulk">Slot length<select id="shrs"><option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option><option value="3">3 hours</option></select></label>
-      <label class="bulk">Number of days<input type="number" id="sdays" min="1" max="31" value="1"></label>
-      <button class="btn t" id="addSlots">Add slots</button>
-    </div>
-    <p style="color:var(--mu);font-size:.85rem;margin-top:10px">Bookings start on 19 Nov 2026 at 1:00 PM. In auto mode, slots are created from the From time to the To time.</p>
-  </div>
+  <nav class="nav wrap" id="nav">
+    <button data-t="schedule"><i>📅</i>Schedule</button>
+    <button data-t="bookings"><i>📋</i>Bookings</button>
+    <button data-t="slots"><i>➕</i>Add slots</button>
+    <button data-t="account"><i>⚙️</i>Account</button>
+  </nav>
 
-  <div class="card">
-    <h2>Slots</h2>
-    <div id="slotList"></div>
-  </div>
+  <main class="wrap">
+    <section id="t-schedule">
+      <div class="stats" id="stats"></div>
+      <div class="sec-h"><h2>Day schedule</h2><span class="mu" style="font-size:.85rem">Tap + to book a free time, or tap a coloured box to edit</span></div>
+      <div class="chips" id="dayChips"></div>
+      <div class="tlwrap" id="tl"></div>
+      <div class="legend"><span><i style="background:var(--tl)"></i>Booked, advance received</span><span><i style="background:var(--am)"></i>Booked, advance pending</span><span><i style="border:1.5px dashed var(--tl)"></i>Free (tap +)</span></div>
+      <h2 style="font-size:1.1rem;margin-bottom:10px">Booked on this day</h2>
+      <div id="dayList"></div>
+    </section>
 
-  <div class="card">
-    <h2>Bookings</h2>
-    <div class="f" style="margin-bottom:8px">
-      <label>Search<input id="fq" placeholder="Name or phone"></label>
-      <label>Sort by<select id="fsort">
-        <option value="slot">Upcoming first (slot time)</option>
-        <option value="slotd">Furthest first</option>
-        <option value="first">Earliest booked first</option>
-        <option value="last">Latest booked first</option></select></label>
-      <label>When<select id="fwhen"><option value="up">Upcoming</option><option value="all">All</option><option value="past">Past</option></select></label>
-      <label>PS5<select id="fcon"><option value="">Both</option><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
-      <label>Advance<select id="fadv"><option value="">All</option><option value="1">Received</option><option value="0">Pending</option></select></label>
-    </div>
-    <div id="bkList"></div>
-  </div>
+    <section id="t-bookings" hidden>
+      <div class="sec-h"><h2>All bookings</h2><span class="mu" id="bcount"></span></div>
+      <div class="card">
+        <div class="f">
+          <label style="grid-column:1/-1">Search<input id="fq" type="search" placeholder="Customer name or phone"></label>
+          <label>Sort by<select id="fsort">
+            <option value="slot">Upcoming first</option>
+            <option value="slotd">Furthest first</option>
+            <option value="first">Earliest booked first</option>
+            <option value="last">Latest booked first</option></select></label>
+          <label>When<select id="fwhen"><option value="up">Upcoming</option><option value="all">All</option><option value="past">Past</option></select></label>
+          <label>PS5<select id="fcon"><option value="">Both</option><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
+          <label>Advance<select id="fadv"><option value="">All</option><option value="1">Received</option><option value="0">Pending</option></select></label>
+        </div>
+      </div>
+      <div id="bkList"></div>
+    </section>
 
-  <div class="card">
-    <h2>Change password</h2>
-    <div class="f">
-      <label>Current password<input id="cpw" type="password" autocomplete="current-password"></label>
-      <label>New password (min 8 characters)<input id="npw" type="password" autocomplete="new-password"></label>
-      <button class="btn" id="pwBtn">Update password</button>
-    </div>
-  </div>
+    <section id="t-slots" hidden>
+      <div class="sec-h"><h2>Add slots</h2></div>
+      <div class="card">
+        <div class="seg" id="seg"><button data-m="bulk" class="on">Many slots (auto)</button><button data-m="single">One slot</button></div>
+        <div class="f">
+          <label>Date<input type="date" id="sdate" min="2026-11-19" value="2026-11-19"></label>
+          <label>From<input type="time" id="sstart" value="13:00"></label>
+          <label>To<input type="time" id="send" value="23:00"></label>
+          <label class="bulk">Slot length<select id="shrs"><option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option><option value="3">3 hours</option></select></label>
+          <label class="bulk">Repeat for days<input type="number" id="sdays" min="1" max="31" value="1" inputmode="numeric"></label>
+        </div>
+        <div class="pv" id="pv"></div>
+        <button class="btn t" id="addSlots" style="width:100%">Create slots</button>
+        <p class="mu" style="font-size:.85rem;margin-top:10px">Bookings start on 19 Nov 2026 at 1:00 PM. Customers can book several slots in a row, so 1-hour slots work best.</p>
+      </div>
+      <div class="card"><h2>Existing slots</h2><div id="slotList"></div></div>
+    </section>
+
+    <section id="t-account" hidden>
+      <div class="sec-h"><h2>Account</h2></div>
+      <div class="card">
+        <h2>Change password</h2>
+        <div class="f">
+          <label>Current password<input id="cpw" type="password" autocomplete="current-password"></label>
+          <label>New password (min 8 characters)<input id="npw" type="password" autocomplete="new-password"></label>
+        </div>
+        <button class="btn" id="pwBtn" style="margin-top:12px">Update password</button>
+      </div>
+    </section>
+  </main>
+  <button class="fab" id="fab">+ New booking</button>
 </div>
 
 <dialog id="dlg">
   <h2 id="dt" style="margin-bottom:12px">Booking</h2>
   <div class="f">
-    <label>Slot<select id="bslot"></select></label>
     <label>PS5<select id="bcon"><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
+    <label>Starts at<select id="bslot"></select></label>
     <label>Ends at<select id="bend"></select></label>
-    <label>Customer name<input id="bname"></label>
-    <label>Phone number<input id="bphone" type="tel" placeholder="03xx xxxxxxx"></label>
-    <label>Advance (Rs)<input id="badv" type="number" min="0" value="0"></label>
-    <label>Booking time<input id="bat" type="datetime-local"></label>
-    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="brec"> Advance received</label>
   </div>
-  <div class="row" style="margin-top:12px"><span style="color:var(--mu);font-size:.85rem">Quick length:</span><button class="btn g s" type="button" data-h="1">1h</button><button class="btn g s" type="button" data-h="2">2h</button><button class="btn g s" type="button" data-h="3">3h</button><button class="btn g s" type="button" data-h="4">4h</button><button class="btn g s" type="button" data-h="5">5h</button></div>
-  <label style="margin-top:12px">Description / notes<textarea id="bnotes" rows="2"></textarea></label>
+  <div class="row" style="margin:12px 0"><span class="mu" style="font-size:.85rem">Quick length:</span>
+    <button class="btn g s" type="button" data-h="1">1h</button><button class="btn g s" type="button" data-h="2">2h</button><button class="btn g s" type="button" data-h="3">3h</button><button class="btn g s" type="button" data-h="4">4h</button><button class="btn g s" type="button" data-h="5">5h</button></div>
+  <div class="f">
+    <label>Customer name<input id="bname" autocomplete="off"></label>
+    <label>Phone number<input id="bphone" type="tel" inputmode="tel" placeholder="03xx xxxxxxx"></label>
+    <label>Advance (Rs)<input id="badv" type="number" min="0" value="0" inputmode="numeric"></label>
+    <label>Booking time<input id="bat" type="datetime-local"></label>
+  </div>
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="brec"> Advance received</label>
+  <label style="margin-top:8px">Description / notes<textarea id="bnotes" rows="2"></textarea></label>
   <label style="margin-top:12px">Advance screenshot<input type="file" id="bfile" accept="image/*"></label>
   <img id="bprev" alt="" hidden>
   <button class="btn d s" id="brm" type="button" hidden>Remove photo</button>
   <div class="err" id="berr" style="margin-top:8px"></div>
-  <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn g" id="bcancel">Close</button><button class="btn" id="bsave">Save</button></div>
+  <div class="row" style="justify-content:flex-end;margin-top:8px">
+    <button class="btn d" id="bdel" type="button" hidden>Delete booking</button><button class="btn g" id="bcancel" type="button">Close</button><button class="btn" id="bsave" type="button">Save</button></div>
 </dialog>
 
-<dialog id="pdlg"><div class="row" style="justify-content:space-between"><h2>Advance screenshot</h2><button class="btn g s" id="pclose">Close</button></div><div id="pbox"></div></dialog>
+<dialog id="pdlg"><div class="between"><h2>Advance screenshot</h2><button class="btn g s" id="pclose">Close</button></div><div id="pbox"></div></dialog>
 
 <script>
 const $ = id => document.getElementById(id);
 const NAMES = { fat: 'PS5 Fat', slim: 'PS5 Slim' };
-let token = sessionStorage.getItem('tk'), D = { slots: [], bookings: [] }, editing = null, proof; // proof: undefined=unchanged, ''=remove, dataURL=new
+const PPM = 1.5; // timeline pixels per minute
+let token = sessionStorage.getItem('tk'), D = { slots: [], bookings: [] }, last = '', editing = null, proof, selDay = null, occ = {}, mode = 'bulk';
+let tab = sessionStorage.getItem('tab') || 'schedule';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
-const dL = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-const startOf = s => new Date(s.date + 'T' + s.start + ':00'), endOf = s => new Date(s.date + 'T' + s.end + ':00');
+const hr12 = h => ((h % 12) || 12) + (h >= 12 ? ' PM' : ' AM');
+const hh = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const mm = t => +t.slice(0, 2) * 60 + +t.slice(3);
 const hrs = (a, b) => Math.round((mm(b) - mm(a)) / 60 * 100) / 100 + 'h';
+const dL = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const dS = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const startOf = s => new Date(s.date + 'T' + s.start + ':00'), endOf = s => new Date(s.date + 'T' + s.end + ':00');
 const covered = b => D.slots.filter(s => s.date === b.date && s.start >= b.start && s.end <= b.end);
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+const wa = p => { let d = String(p).replace(/\D/g, ''); if (d.startsWith('0')) d = '92' + d.slice(1); return 'https://wa.me/' + d; };
+const adv = b => `<span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span>`;
+const showD = d => d.showModal ? d.showModal() : d.setAttribute('open', '');
+const closeD = d => d.close ? d.close() : d.removeAttribute('open');
 function toast(m, e) { const t = document.createElement('div'); t.className = 'toast' + (e ? ' e' : ''); t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 2800); }
 
 async function api(a, body) {
+  const get = body === undefined || a === 'proof';
   const r = await fetch('/api?a=' + a + (a === 'proof' ? '&id=' + body : ''), {
-    method: body !== undefined && a !== 'proof' ? 'POST' : 'GET',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-    body: body !== undefined && a !== 'proof' ? JSON.stringify(body) : undefined, cache: 'no-store'
+    method: get ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: get ? undefined : JSON.stringify(body), cache: 'no-store'
   });
   const d = await r.json().catch(() => ({ error: 'No response from server' }));
   if (r.status === 401 && a !== 'login') { logout(); throw new Error(d.error); }
   if (!r.ok) throw new Error(d.error || 'Error');
   return d;
 }
-function logout() { sessionStorage.removeItem('tk'); token = null; $('app').hidden = true; $('login').hidden = false; }
-
+function logout() { sessionStorage.removeItem('tk'); token = null; last = ''; $('app').hidden = true; $('login').hidden = false; }
 async function login() {
   $('lerr').textContent = ''; $('lbtn').disabled = true;
-  try {
-    const d = await api('login', { username: $('u').value.trim(), password: $('p').value });
-    token = d.token; sessionStorage.setItem('tk', token); $('p').value = ''; start();
-  } catch (e) { $('lerr').textContent = e.message; }
+  try { const d = await api('login', { username: $('u').value.trim(), password: $('p').value }); token = d.token; sessionStorage.setItem('tk', token); $('p').value = ''; start(); }
+  catch (e) { $('lerr').textContent = e.message; }
   $('lbtn').disabled = false;
 }
-
-function start() { $('login').hidden = true; $('app').hidden = false; refresh(); }
+function start() { $('login').hidden = true; $('app').hidden = false; setTab(tab); refresh(); }
 async function refresh() {
   if (!token) return;
-  try { D = await api('admin_data', undefined); renderAll(); } catch (e) { /* retry next tick */ }
+  try { const d = await api('admin_data', undefined), j = JSON.stringify(d); if (j === last) return; last = j; D = d; renderAll(); } catch (e) { /* retry next tick */ }
 }
 setInterval(() => !document.hidden && refresh(), 5000);
 
-function renderAll() {
-  const seats = D.slots.length * 2, bk = D.bookings.reduce((n, b) => n + covered(b).length, 0);
-  const pend = D.bookings.filter(b => !b.received).length;
-  $('stats').innerHTML = [[D.slots.length, 'Total slots'], [bk, 'Booked seats'], [seats - bk, 'Open seats'], [pend, 'Advance pending'], ['Rs ' + D.bookings.filter(b => b.received).reduce((n, b) => n + b.advance, 0).toLocaleString(), 'Advance received']]
-    .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
-  renderSlots(); renderBookings();
+function setTab(t) {
+  tab = t; sessionStorage.setItem('tab', t);
+  document.querySelectorAll('#nav [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  ['schedule', 'bookings', 'slots', 'account'].forEach(x => $('t-' + x).hidden = x !== t);
+  $('fab').hidden = !(t === 'schedule' || t === 'bookings');
+  window.scrollTo(0, 0);
 }
 
-function renderSlots() {
-  const by = {}; D.slots.forEach(s => (by[s.date] ||= []).push(s));
-  const bm = {}; D.bookings.forEach(b => covered(b).forEach(s => bm[s.id + b.console] = b));
-  $('slotList').innerHTML = Object.keys(by).map(d => `<h3 style="margin:14px 0 4px">${dL(d)}</h3>` + by[d].map(s => {
-    const cells = ['fat', 'slim'].map(c => { const b = bm[s.id + c];
-      return b ? `<div class="cell b" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[c]} | ${b.slot_id === s.id ? esc(b.phone) + ' | ' + t12(b.start) + ' to ' + t12(b.end) + ' (' + hrs(b.start, b.end) + ')' : 'continued'}</small></span><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span></div>`
-        : `<div class="cell"><span>${NAMES[c]}<small>Open</small></span><button class="btn t s" data-book="${s.id}" data-con="${c}">Book</button></div>`; }).join('');
-    return `<div class="sl"><div><b>${t12(s.start)}</b><small>to ${t12(s.end)}</small></div>${cells}<button class="btn d s" data-delslot="${s.id}">Delete</button></div>`;
-  }).join('')).join('') || '<p style="color:var(--mu)">No slots yet. Add slots above.</p>';
+function renderAll() {
+  occ = {}; D.bookings.forEach(b => covered(b).forEach(s => occ[s.id + b.console] = b));
+  const taken = Object.keys(occ).length, pend = D.bookings.filter(b => !b.received).length;
+  $('stats').innerHTML = [[D.slots.length * 2 - taken, 'Open seats'], [taken, 'Booked seats'], [pend, 'Advance pending'], ['Rs ' + D.bookings.filter(b => b.received).reduce((n, b) => n + b.advance, 0).toLocaleString(), 'Advance received']]
+    .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+  renderTimeline(); renderBookings(); renderSlotList(); preview();
+}
+
+function renderTimeline() {
+  const dates = [...new Set(D.slots.map(s => s.date))];
+  if (!dates.includes(selDay)) selDay = dates.find(d => d >= nowLocal().slice(0, 10)) || dates[0] || null;
+  $('dayChips').innerHTML = dates.map(d => `<button class="tab ${d === selDay ? 'on' : ''}" data-day="${d}">${dS(d)}<small>${D.bookings.filter(b => b.date === d).length} bookings</small></button>`).join('');
+  if (!selDay) { $('tl').innerHTML = '<div class="empty">No slots yet.<br><br><button class="btn" data-go="slots">Add slots</button></div>'; $('dayList').innerHTML = ''; return; }
+  const keep = document.querySelector('.tls')?.scrollLeft || 0;
+  const ds = D.slots.filter(s => s.date === selDay);
+  const t0 = Math.floor(mm(ds[0].start) / 60) * 60, t1 = Math.ceil(mm(ds[ds.length - 1].end) / 60) * 60, W = (t1 - t0) * PPM, px = m => (m - t0) * PPM;
+  let ticks = ''; for (let m = t0; m < t1; m += 60) ticks += `<div class="tick" style="left:${px(m)}px">${hr12(m / 60)}</div>`;
+  const rows = ['fat', 'slim'].map(c => {
+    const free = ds.filter(s => !occ[s.id + c]).map(s => `<button class="cellf" data-book="${s.id}" data-con="${c}" style="left:${px(mm(s.start)) + 1}px;width:${(mm(s.end) - mm(s.start)) * PPM - 2}px" aria-label="Book ${NAMES[c]} ${t12(s.start)}">+</button>`).join('');
+    const blks = D.bookings.filter(b => b.date === selDay && b.console === c).map(b => `<button class="blk ${b.received ? 'ok' : 'pend'}" data-edit="${b.id}" style="left:${px(mm(b.start)) + 1}px;width:${(mm(b.end) - mm(b.start)) * PPM - 2}px"><b>${esc(b.name)}</b><small>until ${t12(b.end)} (${hrs(b.start, b.end)})</small></button>`).join('');
+    return `<div class="tlr"><div class="tll">${NAMES[c]}</div><div class="trk" style="width:${W}px">${free}${blks}</div></div>`;
+  }).join('');
+  $('tl').innerHTML = `<div class="tls"><div class="tlin"><div class="tlr tlh"><div class="tll"></div><div class="trk" style="width:${W}px">${ticks}</div></div>${rows}</div></div>`;
+  document.querySelector('.tls').scrollLeft = keep;
+  const L = D.bookings.filter(b => b.date === selDay).sort((x, y) => x.start.localeCompare(y.start) || x.id - y.id);
+  $('dayList').innerHTML = L.map(b => `<button class="dl" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[b.console]} | ${esc(b.phone)}</small></span><span class="r"><b>${t12(b.start)} to ${t12(b.end)}</b><small>Booked until ${t12(b.end)} (${hrs(b.start, b.end)})</small></span><span>${adv(b)}</span><span class="r"><small>Rs ${b.advance.toLocaleString()}</small></span></button>`).join('') || '<p class="mu">No bookings on this day yet. Tap a + box above to add one.</p>';
 }
 
 function renderBookings() {
   const q = $('fq').value.toLowerCase(), now = new Date(), w = $('fwhen').value, c = $('fcon').value, a = $('fadv').value;
-  let l = D.bookings.filter(b => (!q || (b.name + b.phone).toLowerCase().includes(q)) && (!c || b.console === c) && (a === '' || String(b.received) === a) &&
-    (w === 'all' || (w === 'up') === (endOf(b) > now)));
-  const k = $('fsort').value;
-  const cmp = { slot: (x, y) => startOf(x) - startOf(y) || x.id - y.id, slotd: (x, y) => startOf(y) - startOf(x), first: (x, y) => (x.booked_at || '').localeCompare(y.booked_at || '') || x.id - y.id, last: (x, y) => (y.booked_at || '').localeCompare(x.booked_at || '') || y.id - x.id }[k];
-  l.sort(cmp);
-  $('bkList').innerHTML = l.map(b => `<div class="bk-card">
-    <div><b>${esc(b.name)}</b><small><a style="color:var(--am)" href="tel:${esc(b.phone)}">${esc(b.phone)}</a></small>${b.notes ? `<small>${esc(b.notes)}</small>` : ''}</div>
-    <div><b>${dL(b.date)}</b><small>${t12(b.start)} to ${t12(b.end)} (${hrs(b.start, b.end)}) | ${NAMES[b.console]}</small></div>
-    <div><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span> <small>Rs ${b.advance.toLocaleString()} | Booking: ${esc((b.booked_at || '').replace('T', ' '))}</small></div>
-    <div class="row">${b.has_proof ? `<button class="btn g s" data-proof="${b.id}">Screenshot</button>` : ''}<button class="btn g s" data-edit="${b.id}">Edit</button><button class="btn d s" data-delbk="${b.id}">Delete</button></div></div>`).join('') || '<p style="color:var(--mu)">No bookings found.</p>';
+  const l = D.bookings.filter(b => (!q || (b.name + b.phone).toLowerCase().includes(q)) && (!c || b.console === c) && (a === '' || String(b.received) === a) && (w === 'all' || (w === 'up') === (endOf(b) > now)));
+  l.sort({ slot: (x, y) => startOf(x) - startOf(y) || x.id - y.id, slotd: (x, y) => startOf(y) - startOf(x), first: (x, y) => (x.booked_at || '').localeCompare(y.booked_at || '') || x.id - y.id, last: (x, y) => (y.booked_at || '').localeCompare(x.booked_at || '') || y.id - x.id }[$('fsort').value]);
+  $('bcount').textContent = l.length + ' shown';
+  $('bkList').innerHTML = l.map(b => `<article class="bc">
+    <div class="bc-h"><div><b>${esc(b.name)}</b><br><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a> | <a href="${wa(b.phone)}" target="_blank" rel="noopener">WhatsApp</a></div>${adv(b)}</div>
+    <div class="bc-t"><b>${dL(b.date)}</b><br>${t12(b.start)} to ${t12(b.end)} <span class="pill am">${hrs(b.start, b.end)}</span> | ${NAMES[b.console]}<br><small>Booked until ${t12(b.end)}</small></div>
+    <small>Advance Rs ${b.advance.toLocaleString()} | Booked on ${esc((b.booked_at || '').replace('T', ' '))}${b.notes ? '<br>' + esc(b.notes) : ''}</small>
+    <div class="row">${b.has_proof ? `<button class="btn g s" data-proof="${b.id}">Screenshot</button>` : ''}<button class="btn g s" data-edit="${b.id}">Edit</button><button class="btn d s" data-delbk="${b.id}">Delete</button></div></article>`).join('') || '<div class="empty">No bookings found.</div>';
 }
 
+function renderSlotList() {
+  const by = {}; D.slots.forEach(s => (by[s.date] ||= []).push(s));
+  $('slotList').innerHTML = Object.keys(by).map(d => `<div class="sg"><h3>${dL(d)}</h3>${by[d].map(s => (occ[s.id + 'fat'] || occ[s.id + 'slim'])
+    ? `<span class="sc lock">${t12(s.start)} - ${t12(s.end)} 🔒</span>` : `<span class="sc">${t12(s.start)} - ${t12(s.end)}<button data-delslot="${s.id}" aria-label="Delete slot">✕</button></span>`).join('')}</div>`).join('') || '<p class="mu">No slots yet.</p>';
+}
+
+/* add slots */
+function setMode(m) {
+  mode = m; document.querySelectorAll('#seg [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.querySelectorAll('.bulk').forEach(x => x.hidden = m !== 'bulk'); preview();
+}
+function preview() {
+  const d = $('sdate').value, a = $('sstart').value, b = $('send').value; let list = [];
+  if (d && a && b) {
+    if (mode === 'bulk') { const dur = Math.round(+$('shrs').value * 60); for (let m = mm(a); m + dur <= mm(b); m += dur) list.push([m, m + dur]); }
+    else if (mm(b) > mm(a)) list.push([mm(a), mm(b)]);
+  }
+  const days = mode === 'bulk' ? Math.min(Math.max(+$('sdays').value || 1, 1), 31) : 1;
+  const early = d && (d < '2026-11-19' || (d === '2026-11-19' && a < '13:00'));
+  $('pv').className = 'pv' + (early || !list.length ? ' w' : '');
+  $('pv').textContent = early ? 'Bookings open on 19 Nov 2026 at 1:00 PM. Earlier slots are not allowed.'
+    : !list.length ? 'Check the times: the end time must be after the start time, and the slot length must fit.'
+    : `${list.length * days} slot(s) will be created: ${t12(hh(list[0][0]))} to ${t12(hh(list[list.length - 1][1]))}${days > 1 ? ` every day for ${days} days from ${dS(d)}` : ' on ' + dS(d)}.`;
+}
+$('seg').onclick = e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); };
+['sdate', 'sstart', 'send', 'shrs', 'sdays'].forEach(i => $(i).addEventListener('input', preview));
+$('addSlots').onclick = async () => {
+  $('addSlots').disabled = true;
+  try {
+    const d = await api('add_slots', { mode, date: $('sdate').value, start: $('sstart').value, end: $('send').value, from: $('sstart').value, to: $('send').value, hours: $('shrs').value, days: $('sdays').value });
+    toast(d.added + ' slot(s) added' + (d.skipped ? ', ' + d.skipped + ' already existed' : '')); last = ''; refresh(); setTab('schedule');
+  } catch (e) { toast(e.message, 1); }
+  $('addSlots').disabled = false;
+};
+
 /* booking dialog */
-function openDlg(b, slotId, con) {
-  editing = b; proof = undefined; $('berr').textContent = ''; $('bfile').value = '';
-  $('dt').textContent = b ? 'Edit booking' : 'New booking';
-  $('bslot').innerHTML = D.slots.map(s => `<option value="${s.id}">${dL(s.date)} ${t12(s.start)} - ${t12(s.end)}</option>`).join('');
-  $('bslot').value = b ? b.slot_id : slotId; $('bcon').value = b ? b.console : con;
-  $('bname').value = b?.name || ''; $('bphone').value = b?.phone || ''; $('badv').value = b?.advance || 0;
-  $('bat').value = b?.booked_at || nowLocal(); $('brec').checked = !!b?.received; $('bnotes').value = b?.notes || '';
-  fillEnd(b ? b.end_slot_id : null);
-  showPrev(null);
-  if (b?.has_proof) api('proof', b.id).then(d => proof === undefined && showPrev(d.proof)).catch(() => {});
-  $('dlg').showModal();
+const otherOcc = (slotId, con) => { const b = occ[slotId + con]; return b && (!editing || b.id !== editing.id) ? b : null; };
+function fillStart(sel) {
+  const con = $('bcon').value, by = {}; D.slots.forEach(s => (by[s.date] ||= []).push(s));
+  $('bslot').innerHTML = Object.keys(by).map(d => `<optgroup label="${dL(d)}">` + by[d].map(s => { const o = otherOcc(s.id, con); return `<option value="${s.id}" ${o ? 'disabled' : ''}>${t12(s.start)} to ${t12(s.end)}${o ? ' (booked)' : ''}</option>`; }).join('') + '</optgroup>').join('');
+  if (sel) $('bslot').value = sel;
+  if (!$('bslot').value || $('bslot').selectedOptions[0]?.disabled) { const f = [...$('bslot').options].find(o => !o.disabled); if (f) $('bslot').value = f.value; }
 }
 function fillEnd(sel) {
-  const s = D.slots.find(x => x.id == $('bslot').value); if (!s) return;
-  let opts = '', prev = null;
+  const con = $('bcon').value, s = D.slots.find(x => x.id == $('bslot').value); if (!s) { $('bend').innerHTML = ''; return; }
+  let o = '', prev = null;
   for (const x of D.slots.filter(x => x.date === s.date && x.start >= s.start)) {
-    if (prev && x.start !== prev.end) break;
-    opts += `<option value="${x.id}" data-h="${(mm(x.end) - mm(s.start)) / 60}">${t12(x.end)} (${hrs(s.start, x.end)})</option>`; prev = x;
+    if ((prev && x.start !== prev.end) || otherOcc(x.id, con)) break;
+    o += `<option value="${x.id}" data-h="${(mm(x.end) - mm(s.start)) / 60}">${t12(x.end)} (${hrs(s.start, x.end)})</option>`; prev = x;
   }
-  $('bend').innerHTML = opts;
-  if (sel && [...$('bend').options].some(o => o.value == sel)) $('bend').value = sel;
+  $('bend').innerHTML = o; if (sel && [...$('bend').options].some(v => v.value == sel)) $('bend').value = sel;
 }
+function openDlg(b, slotId, con) {
+  if (!D.slots.length) { toast('Add some slots first', 1); setTab('slots'); return; }
+  editing = b || null; proof = undefined; $('berr').textContent = ''; $('bfile').value = '';
+  $('dt').textContent = b ? 'Edit booking' : 'New booking'; $('bdel').hidden = !b;
+  $('bcon').value = b ? b.console : (con || 'fat');
+  if (!b && !slotId) slotId = (D.slots.find(s => s.date === selDay && !occ[s.id + $('bcon').value]) || {}).id;
+  fillStart(b ? b.slot_id : slotId); fillEnd(b ? b.end_slot_id : null);
+  $('bname').value = b?.name || ''; $('bphone').value = b?.phone || ''; $('badv').value = b?.advance || 0;
+  $('bat').value = b?.booked_at || nowLocal(); $('brec').checked = !!b?.received; $('bnotes').value = b?.notes || '';
+  showPrev(null);
+  if (b?.has_proof) api('proof', b.id).then(d => proof === undefined && showPrev(d.proof)).catch(() => {});
+  showD($('dlg'));
+}
+$('bcon').onchange = () => { fillStart($('bslot').value); fillEnd(); };
 $('bslot').onchange = () => fillEnd();
 document.querySelectorAll('#dlg [data-h]').forEach(btn => btn.onclick = () => {
   const o = [...$('bend').options].find(o => Math.abs(o.dataset.h - btn.dataset.h) < .01);
-  if (o) { $('bend').value = o.value; $('berr').textContent = ''; } else $('berr').textContent = 'Not enough continuous slots for ' + btn.dataset.h + ' hour(s) from this start time.';
+  if (o) { $('bend').value = o.value; $('berr').textContent = ''; } else $('berr').textContent = 'Not enough free continuous time for ' + btn.dataset.h + ' hour(s) from this start time.';
 });
 function showPrev(src) { $('bprev').hidden = $('brm').hidden = !src; if (src) $('bprev').src = src; }
 function compress(file) {
@@ -211,13 +303,14 @@ function compress(file) {
 }
 $('bfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { proof = await compress(f); showPrev(proof); } catch (x) { $('berr').textContent = x.message; } };
 $('brm').onclick = () => { proof = ''; $('bfile').value = ''; showPrev(null); };
-$('bcancel').onclick = () => $('dlg').close();
+$('bcancel').onclick = () => closeD($('dlg'));
+$('bdel').onclick = async () => { if (!confirm('Delete this booking?')) return; try { await api('del_booking', { id: editing.id }); closeD($('dlg')); toast('Booking deleted'); last = ''; refresh(); } catch (e) { $('berr').textContent = e.message; } };
 $('bsave').onclick = async () => {
   const body = { slot_id: +$('bslot').value, end_slot_id: +$('bend').value, console: $('bcon').value, name: $('bname').value, phone: $('bphone').value, advance: +$('badv').value || 0, received: $('brec').checked, booked_at: $('bat').value, notes: $('bnotes').value };
   if (proof !== undefined) body.proof = proof;
   if (editing) body.id = editing.id;
   $('bsave').disabled = true; $('berr').textContent = '';
-  try { await api(editing ? 'update_booking' : 'book', body); $('dlg').close(); toast('Saved'); refresh(); }
+  try { await api(editing ? 'update_booking' : 'book', body); closeD($('dlg')); toast('Saved'); last = ''; refresh(); }
   catch (e) { $('berr').textContent = e.message; }
   $('bsave').disabled = false;
 };
@@ -227,28 +320,19 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button,[data-edit]'); if (!t) return;
   const g = k => t.dataset[k];
   try {
-    if (g('book')) openDlg(null, +g('book'), g('con'));
+    if (g('t')) setTab(g('t'));
+    else if (g('go')) setTab(g('go'));
+    else if (g('day')) { selDay = g('day'); renderTimeline(); }
+    else if (g('book')) openDlg(null, +g('book'), g('con'));
     else if (g('edit')) openDlg(D.bookings.find(b => b.id == g('edit')));
-    else if (g('proof')) { const d = await api('proof', g('proof')); $('pbox').innerHTML = `<img src="${d.proof}" alt="Advance screenshot">`; $('pdlg').showModal(); }
-    else if (g('delbk') && confirm('Delete this booking?')) { await api('del_booking', { id: +g('delbk') }); toast('Booking deleted'); refresh(); }
-    else if (g('delslot') && confirm('Delete this slot?')) { await api('del_slot', { id: +g('delslot') }); toast('Slot deleted'); refresh(); }
+    else if (g('proof')) { const d = await api('proof', g('proof')); $('pbox').innerHTML = `<img src="${d.proof}" alt="Advance screenshot">`; showD($('pdlg')); }
+    else if (g('delbk') && confirm('Delete this booking?')) { await api('del_booking', { id: +g('delbk') }); toast('Booking deleted'); last = ''; refresh(); }
+    else if (g('delslot') && confirm('Delete this slot?')) { await api('del_slot', { id: +g('delslot') }); toast('Slot deleted'); last = ''; refresh(); }
   } catch (x) { toast(x.message, 1); }
 });
-$('pclose').onclick = () => $('pdlg').close();
+$('fab').onclick = () => openDlg(null);
+$('pclose').onclick = () => closeD($('pdlg'));
 ['fq', 'fsort', 'fwhen', 'fcon', 'fadv'].forEach(i => $(i).addEventListener('input', renderBookings));
-
-/* add slots */
-function modeUI() { const bulk = $('mode').value === 'bulk'; document.querySelectorAll('.bulk').forEach(x => x.hidden = !bulk); $('lS').firstChild.textContent = bulk ? 'From' : 'Start'; $('lE').firstChild.textContent = bulk ? 'To' : 'End'; }
-$('mode').onchange = () => { $('send').value = $('mode').value === 'bulk' ? '23:00' : '14:00'; modeUI(); }; modeUI();
-$('addSlots').onclick = async () => {
-  $('addSlots').disabled = true;
-  try {
-    const d = await api('add_slots', { mode: $('mode').value, date: $('sdate').value, start: $('sstart').value, end: $('send').value, from: $('sstart').value, to: $('send').value, hours: $('shrs').value, days: $('sdays').value });
-    toast(d.added + ' slot(s) added' + (d.skipped ? ', ' + d.skipped + ' already existed' : '')); refresh();
-  } catch (e) { toast(e.message, 1); }
-  $('addSlots').disabled = false;
-};
-
 $('pwBtn').onclick = async () => {
   $('pwBtn').disabled = true;
   try { await api('change_password', { current_password: $('cpw').value, new_password: $('npw').value }); $('cpw').value = $('npw').value = ''; toast('Password updated'); }
@@ -257,6 +341,7 @@ $('pwBtn').onclick = async () => {
 };
 $('lbtn').onclick = login; $('p').addEventListener('keydown', e => e.key === 'Enter' && login());
 $('logout').onclick = logout;
+setMode('bulk');
 if (token) start();
 </script>
 </body>
