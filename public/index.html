@@ -16,40 +16,61 @@
 </div></header>
 <main class="wrap">
   <div class="note">An <b>advance payment</b> is required to confirm your booking. Pick an open slot and message us on WhatsApp.</div>
+  <p style="color:var(--mu);margin-bottom:8px">How long do you want to play?</p>
+  <div class="tabs" id="chips"><button class="tab on" data-h="0">Single slots</button><button class="tab" data-h="3">3 hours</button><button class="tab" data-h="4">4 hours</button><button class="tab" data-h="5">5 hours</button></div>
   <div class="tabs" id="tabs" role="tablist"></div>
   <div class="grid" id="grid" aria-live="polite"></div>
 </main>
 <footer><div class="wrap">Last update: <span id="upd">-</span> | <a href="/admin">Admin</a></div></footer>
 <script>
-const WHATSAPP = '923000000000'; // apna number yahan likhein (92 se shuru, bina + ke)
+const WHATSAPP = '923479666466'; // booking WhatsApp number (country code, no + or leading 0)
 const NAMES = { fat: 'PS5 Fat', slim: 'PS5 Slim' };
 const $ = id => document.getElementById(id);
-let slots = [], day = null, html = '';
+let slots = [], day = null, html = '', dur = 0; // dur: 0 = single slots, otherwise hours (3, 4, 5)
 
 const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
 const dLabel = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const over = s => new Date(s.date + 'T' + s.end + ':00') <= new Date();
+const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
+
+// Build the start times for one day. For 3 to 5 hour sessions, a start time only appears
+// when enough continuous slots follow it, and a console is "Available" only if it is free for the whole session.
+function cardsFor(list) {
+  const out = [];
+  list.forEach((s, i) => {
+    let end = s.end, total = mins(s.end) - mins(s.start), win = [s], k = i;
+    while (dur && total < dur * 60) {
+      const n = list[k + 1];
+      if (!n || n.start !== end) { win = null; break; }
+      win.push(n); end = n.end; total += mins(n.end) - mins(n.start); k++;
+    }
+    if (!win) return;
+    out.push({ s, end, taken: new Set(win.flatMap(x => x.taken ? x.taken.split(',') : [])) });
+  });
+  return out;
+}
 
 function render() {
+  document.querySelectorAll('#chips [data-h]').forEach(b => b.classList.toggle('on', +b.dataset.h === dur));
   const live = slots.filter(s => !over(s));
   const days = [...new Set(live.map(s => s.date))];
   if (!days.includes(day)) day = days[0] || null;
-  const tabs = days.map(d => {
-    const free = live.filter(s => s.date === d).reduce((n, s) => n + 2 - (s.taken ? s.taken.split(',').length : 0), 0);
-    return `<button class="tab ${d === day ? 'on' : ''}" role="tab" data-d="${d}">${dLabel(d)}<small>${free} open</small></button>`;
-  }).join('');
+  const byDay = d => cardsFor(live.filter(s => s.date === d));
+  const tabs = days.map(d => `<button class="tab ${d === day ? 'on' : ''}" role="tab" data-d="${d}">${dLabel(d)}<small>${byDay(d).filter(c => c.taken.size < 2).length} open</small></button>`).join('');
   let g = '';
-  for (const s of live.filter(s => s.date === day)) {
-    const taken = s.taken ? s.taken.split(',') : [], left = 2 - taken.length;
-    const rows = ['fat', 'slim'].map(c => `<div class="con"><span>${NAMES[c]}</span><span class="pill ${taken.includes(c) ? 'bk' : 'free'}">${taken.includes(c) ? 'Booked' : 'Available'}</span></div>`).join('');
-    const msg = encodeURIComponent(`Hello, I would like to book a GTA 6 slot: ${dLabel(s.date)}, ${t12(s.start)} to ${t12(s.end)}`);
-    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(s.start)} <small>to ${t12(s.end)}</small></div>${rows}` +
-      (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 spots open' : '1 spot open'}: book on WhatsApp</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Slot full</span>`) + '</article>';
+  for (const c of day ? byDay(day) : []) {
+    const left = 2 - c.taken.size;
+    const len = dur ? ` (${dur} hours)` : '';
+    const rows = ['fat', 'slim'].map(n => `<div class="con"><span>${NAMES[n]}</span><span class="pill ${c.taken.has(n) ? 'bk' : 'free'}">${c.taken.has(n) ? 'Booked' : 'Available'}</span></div>`).join('');
+    const msg = encodeURIComponent(`Hello, I would like to book a GTA 6 session: ${dLabel(c.s.date)}, ${t12(c.s.start)} to ${t12(c.end)}${len}`);
+    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(c.s.start)} <small>to ${t12(c.end)}${len}</small></div>${rows}` +
+      (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 spots open' : '1 spot open'}: book on WhatsApp</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Fully booked</span>`) + '</article>';
   }
-  const out = tabs + '|' + (g || (days.length ? '' : '<div class="empty">No slots available right now. Please check back soon.</div>'));
+  const empty = days.length ? (dur ? '<div class="empty">No start time has enough continuous slots for this length on this day. Try another day or a shorter session.</div>' : '') : '<div class="empty">No slots available right now. Please check back soon.</div>';
+  const out = dur + tabs + '|' + g + empty;
   if (out === html) return;
   html = out;
-  $('tabs').innerHTML = tabs; $('grid').innerHTML = g || '<div class="empty">No slots available right now. Please check back soon.</div>';
+  $('tabs').innerHTML = tabs; $('grid').innerHTML = g || empty;
 }
 
 async function load() {
@@ -62,6 +83,7 @@ async function load() {
     render();
   } catch { $('dot').classList.add('off'); $('liveTxt').textContent = 'Connection problem, retrying...'; }
 }
+$('chips').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (b) { dur = +b.dataset.h; render(); } });
 $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) { day = b.dataset.d; render(); } });
 load(); setInterval(load, 3000);
 document.addEventListener('visibilitychange', () => !document.hidden && load());

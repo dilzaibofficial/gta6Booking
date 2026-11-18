@@ -8,13 +8,23 @@ const SECRET = process.env.AUTH_SECRET || 'gta6::' + ADMIN_PASS;
 const START_DATE = '2026-11-19', START_TIME = '13:00'; // booking start: 19 Nov 1 PM
 const CONSOLES = ['fat', 'slim'];
 
+const hashPw = (p, salt = crypto.randomBytes(16).toString('hex')) => salt + ':' + crypto.scryptSync(String(p), salt, 32).toString('hex');
+const checkPw = (p, stored) => { const [salt, h] = String(stored || 'x:x').split(':'); const a = Buffer.from(hashPw(p, salt).split(':')[1], 'hex'), b = Buffer.from(h || '', 'hex'); return a.length === b.length && crypto.timingSafeEqual(a, b); };
+
 let ready;
 function init() {
-  return (ready ||= db.batch([
+  return (ready ||= (async () => { await db.batch([
     `CREATE TABLE IF NOT EXISTS slots(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, note TEXT DEFAULT '', UNIQUE(date,start))`,
-    `CREATE TABLE IF NOT EXISTS bookings(id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER NOT NULL, console TEXT NOT NULL, name TEXT NOT NULL, phone TEXT NOT NULL, advance INTEGER DEFAULT 0, received INTEGER DEFAULT 0, notes TEXT DEFAULT '', proof TEXT DEFAULT '', booked_at TEXT, created_at TEXT DEFAULT (datetime('now')))`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS uq_slot_console ON bookings(slot_id, console)`
-  ], 'write').catch(e => { ready = null; throw e; }));
+    `CREATE TABLE IF NOT EXISTS bookings(id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER NOT NULL, console TEXT NOT NULL, name TEXT NOT NULL, phone TEXT NOT NULL, advance INTEGER DEFAULT 0, received INTEGER DEFAULT 0, notes TEXT DEFAULT '', proof TEXT DEFAULT '', booked_at TEXT, end_slot_id INTEGER, created_at TEXT DEFAULT (datetime('now')))`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_slot_console ON bookings(slot_id, console)`,
+    `CREATE TABLE IF NOT EXISTS admins(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS booking_slots(booking_id INTEGER NOT NULL, slot_id INTEGER NOT NULL, console TEXT NOT NULL, UNIQUE(slot_id, console))`
+  ], 'write');
+    await db.execute('ALTER TABLE bookings ADD COLUMN end_slot_id INTEGER').catch(() => {}); // older databases
+    await db.execute('INSERT OR IGNORE INTO booking_slots(booking_id,slot_id,console) SELECT id,slot_id,console FROM bookings');
+    // first run: save the admin login (from env) into the database, password stored hashed
+    if (!(await q('SELECT COUNT(*) c FROM admins'))[0].c) await db.execute({ sql: 'INSERT INTO admins(username,pass_hash) VALUES(?,?)', args: [ADMIN_USER, hashPw(ADMIN_PASS)] });
+  })().catch(e => { ready = null; throw e; }));
 }
 
 const rows = r => r.rows.map(x => Object.fromEntries(r.columns.map(c => [c, x[c]])));
@@ -22,13 +32,13 @@ const q = async (sql, args = []) => rows(await db.execute({ sql, args }));
 const str = (v, n = 300) => String(v ?? '').trim().slice(0, n);
 const safeEq = (a, b) => crypto.timingSafeEqual(crypto.createHash('sha256').update(String(a)).digest(), crypto.createHash('sha256').update(String(b)).digest());
 const sign = p => crypto.createHmac('sha256', SECRET).update(p).digest('base64url');
-function makeToken() { const p = Buffer.from(JSON.stringify({ exp: Date.now() + 12 * 3600e3 })).toString('base64url'); return p + '.' + sign(p); }
+function makeToken(u) { const p = Buffer.from(JSON.stringify({ exp: Date.now() + 12 * 3600e3, u })).toString('base64url'); return p + '.' + sign(p); }
 function authed(req) {
   const [p, s] = (req.headers.authorization || '').replace('Bearer ', '').split('.');
   if (!p || !s) return false;
   const e = sign(p);
   if (s.length !== e.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(e))) return false;
-  try { return JSON.parse(Buffer.from(p, 'base64url').toString()).exp > Date.now(); } catch { return false; }
+  try { const d = JSON.parse(Buffer.from(p, 'base64url').toString()); return d.exp > Date.now() ? d : false; } catch { return false; }
 }
 const validSlot = (d, s, e) => /^\d{4}-\d\d-\d\d$/.test(d) && /^\d\d:\d\d$/.test(s) && /^\d\d:\d\d$/.test(e) && e > s && (d > START_DATE || (d === START_DATE && s >= START_TIME));
 const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
@@ -36,7 +46,7 @@ const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m %
 const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const validProof = p => p === '' || (typeof p === 'string' && p.startsWith('data:image/') && p.length < 3.8e6);
 
-const SLOTS_SQL = `SELECT s.id,s.date,s.start,s.end,s.note,(SELECT group_concat(console) FROM bookings WHERE slot_id=s.id) taken FROM slots s ORDER BY s.date,s.start`;
+const SLOTS_SQL = `SELECT s.id,s.date,s.start,s.end,s.note,(SELECT group_concat(console) FROM booking_slots WHERE slot_id=s.id) taken FROM slots s ORDER BY s.date,s.start`;
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -49,14 +59,24 @@ module.exports = async (req, res) => {
 
     if (a === 'login') {
       if (req.method !== 'POST') return out(405, { error: 'POST required' });
-      if (safeEq(b.username, ADMIN_USER) & safeEq(b.password, ADMIN_PASS)) return out(200, { token: makeToken() });
+      const adm = (await q('SELECT username,pass_hash FROM admins WHERE username=?', [str(b.username, 60)]))[0];
+      if (checkPw(b.password, adm?.pass_hash) && adm) return out(200, { token: makeToken(adm.username) });
       return out(401, { error: 'Incorrect username or password' });
     }
 
     if (!authed(req)) return out(401, { error: 'Please log in again' });
 
+    if (a === 'change_password') {
+      const user = authed(req).u, np = String(b.new_password || '');
+      const adm = (await q('SELECT pass_hash FROM admins WHERE username=?', [user]))[0];
+      if (!adm || !checkPw(b.current_password, adm.pass_hash)) return out(400, { error: 'Current password is incorrect' });
+      if (np.length < 8) return out(400, { error: 'New password must be at least 8 characters' });
+      await db.execute({ sql: 'UPDATE admins SET pass_hash=? WHERE username=?', args: [hashPw(np), user] });
+      return out(200, { ok: true });
+    }
+
     if (a === 'admin_data') {
-      const bookings = await q(`SELECT b.id,b.slot_id,b.console,b.name,b.phone,b.advance,b.received,b.notes,b.booked_at,b.created_at,(b.proof!='') has_proof,s.date,s.start,s.end FROM bookings b JOIN slots s ON s.id=b.slot_id ORDER BY s.date,s.start`);
+      const bookings = await q(`SELECT b.id,b.slot_id,COALESCE(b.end_slot_id,b.slot_id) end_slot_id,b.console,b.name,b.phone,b.advance,b.received,b.notes,b.booked_at,b.created_at,(b.proof!='') has_proof,s.date,s.start,COALESCE(e."end",s."end") "end" FROM bookings b JOIN slots s ON s.id=b.slot_id LEFT JOIN slots e ON e.id=b.end_slot_id ORDER BY s.date,s.start`);
       return out(200, { slots: await q(SLOTS_SQL), bookings });
     }
 
@@ -83,7 +103,7 @@ module.exports = async (req, res) => {
 
     if (a === 'del_slot') {
       const id = +b.id;
-      const n = (await q('SELECT COUNT(*) c FROM bookings WHERE slot_id=?', [id]))[0].c;
+      const n = (await q('SELECT COUNT(*) c FROM booking_slots WHERE slot_id=?', [id]))[0].c;
       if (n) return out(409, { error: 'This slot has a booking. Delete the booking first.' });
       await db.execute({ sql: 'DELETE FROM slots WHERE id=?', args: [id] });
       return out(200, { ok: true });
@@ -91,37 +111,51 @@ module.exports = async (req, res) => {
 
     if (a === 'book' || a === 'update_booking') {
       const isNew = a === 'book';
+      if (!isNew && !(await q('SELECT 1 FROM bookings WHERE id=?', [+b.id])).length) return out(404, { error: 'Booking not found' });
       const f = {};
-      if (isNew || b.slot_id !== undefined) f.slot_id = +b.slot_id;
-      if (isNew || b.console !== undefined) f.console = str(b.console, 10);
-      if (isNew || b.name !== undefined) f.name = str(b.name, 80);
-      if (isNew || b.phone !== undefined) f.phone = str(b.phone, 20);
-      if (b.advance !== undefined || isNew) f.advance = Math.max(0, Math.round(+b.advance || 0));
-      if (b.received !== undefined || isNew) f.received = b.received ? 1 : 0;
-      if (b.notes !== undefined || isNew) f.notes = str(b.notes, 500);
-      if (b.booked_at !== undefined || isNew) f.booked_at = str(b.booked_at, 16) || new Date().toISOString().slice(0, 16);
+      f.name = str(b.name, 80);
+      f.phone = str(b.phone, 20);
+      f.console = str(b.console, 10);
+      f.advance = Math.max(0, Math.round(+b.advance || 0));
+      f.received = b.received ? 1 : 0;
+      f.notes = str(b.notes, 500);
+      f.booked_at = str(b.booked_at, 16) || new Date().toISOString().slice(0, 16);
       if (b.proof !== undefined) { if (!validProof(b.proof)) return out(400, { error: 'Invalid photo or file too large' }); f.proof = b.proof; }
-      if ('console' in f && !CONSOLES.includes(f.console)) return out(400, { error: 'Choose PS5 Fat or PS5 Slim' });
-      if ('name' in f && !f.name) return out(400, { error: 'Enter the customer name' });
-      if ('phone' in f && f.phone.replace(/\D/g, '').length < 10) return out(400, { error: 'Enter a valid phone number' });
-      if ('slot_id' in f && !(await q('SELECT 1 FROM slots WHERE id=?', [f.slot_id])).length) return out(400, { error: 'Slot not found' });
+      if (!CONSOLES.includes(f.console)) return out(400, { error: 'Choose PS5 Fat or PS5 Slim' });
+      if (!f.name) return out(400, { error: 'Enter the customer name' });
+      if (f.phone.replace(/\D/g, '').length < 10) return out(400, { error: 'Enter a valid phone number' });
+      // a booking can cover several continuous slots (any length, e.g. 2h, 3h, 4h, 5h)
+      const startS = (await q('SELECT * FROM slots WHERE id=?', [+b.slot_id]))[0];
+      const endS = (await q('SELECT * FROM slots WHERE id=?', [+(b.end_slot_id || b.slot_id)]))[0];
+      if (!startS || !endS) return out(400, { error: 'Slot not found' });
+      if (startS.date !== endS.date || endS.start < startS.start) return out(400, { error: 'The end slot must be on the same day and not before the start slot' });
+      const span = await q('SELECT id,start,"end" FROM slots WHERE date=? AND start>=? AND start<=? ORDER BY start', [startS.date, startS.start, endS.start]);
+      for (let k = 1; k < span.length; k++) if (span[k].start !== span[k - 1].end) return out(400, { error: 'The slots in this time range are not continuous' });
+      f.slot_id = startS.id; f.end_slot_id = endS.id;
+      const k = Object.keys(f);
+      const tx = await db.transaction('write');
       try {
+        let id;
         if (isNew) {
-          const k = Object.keys(f);
-          const r = await db.execute({ sql: `INSERT INTO bookings(${k}) VALUES(${k.map(() => '?')})`, args: k.map(x => f[x]) });
-          return out(200, { id: Number(r.lastInsertRowid) });
+          const r = await tx.execute({ sql: `INSERT INTO bookings(${k}) VALUES(${k.map(() => '?')})`, args: k.map(x => f[x]) });
+          id = Number(r.lastInsertRowid);
+        } else {
+          id = +b.id;
+          await tx.execute({ sql: 'DELETE FROM booking_slots WHERE booking_id=?', args: [id] });
+          await tx.execute({ sql: `UPDATE bookings SET ${k.map(x => x + '=?')} WHERE id=?`, args: [...k.map(x => f[x]), id] });
         }
-        const k = Object.keys(f);
-        if (k.length) await db.execute({ sql: `UPDATE bookings SET ${k.map(x => x + '=?')} WHERE id=?`, args: [...k.map(x => f[x]), +b.id] });
-        return out(200, { ok: true });
+        for (const s of span) await tx.execute({ sql: 'INSERT INTO booking_slots(booking_id,slot_id,console) VALUES(?,?,?)', args: [id, s.id, f.console] });
+        await tx.commit();
+        return out(200, { id });
       } catch (e) {
-        if (/UNIQUE/i.test(e.message)) return out(409, { error: 'This PS5 is already booked for this slot' });
+        await tx.rollback().catch(() => {});
+        if (/UNIQUE/i.test(e.message)) return out(409, { error: 'This PS5 is already booked for part of this time' });
         throw e;
-      }
+      } finally { tx.close(); }
     }
 
     if (a === 'del_booking') {
-      await db.execute({ sql: 'DELETE FROM bookings WHERE id=?', args: [+b.id] });
+      await db.batch([{ sql: 'DELETE FROM booking_slots WHERE booking_id=?', args: [+b.id] }, { sql: 'DELETE FROM bookings WHERE id=?', args: [+b.id] }], 'write');
       return out(200, { ok: true });
     }
 

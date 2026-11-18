@@ -62,6 +62,15 @@
     </div>
     <div id="bkList"></div>
   </div>
+
+  <div class="card">
+    <h2>Change password</h2>
+    <div class="f">
+      <label>Current password<input id="cpw" type="password" autocomplete="current-password"></label>
+      <label>New password (min 8 characters)<input id="npw" type="password" autocomplete="new-password"></label>
+      <button class="btn" id="pwBtn">Update password</button>
+    </div>
+  </div>
 </div>
 
 <dialog id="dlg">
@@ -69,12 +78,14 @@
   <div class="f">
     <label>Slot<select id="bslot"></select></label>
     <label>PS5<select id="bcon"><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
+    <label>Ends at<select id="bend"></select></label>
     <label>Customer name<input id="bname"></label>
     <label>Phone number<input id="bphone" type="tel" placeholder="03xx xxxxxxx"></label>
     <label>Advance (Rs)<input id="badv" type="number" min="0" value="0"></label>
     <label>Booking time<input id="bat" type="datetime-local"></label>
     <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="brec"> Advance received</label>
   </div>
+  <div class="row" style="margin-top:12px"><span style="color:var(--mu);font-size:.85rem">Quick length:</span><button class="btn g s" type="button" data-h="1">1h</button><button class="btn g s" type="button" data-h="2">2h</button><button class="btn g s" type="button" data-h="3">3h</button><button class="btn g s" type="button" data-h="4">4h</button><button class="btn g s" type="button" data-h="5">5h</button></div>
   <label style="margin-top:12px">Description / notes<textarea id="bnotes" rows="2"></textarea></label>
   <label style="margin-top:12px">Advance screenshot<input type="file" id="bfile" accept="image/*"></label>
   <img id="bprev" alt="" hidden>
@@ -94,6 +105,9 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
 const dL = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const startOf = s => new Date(s.date + 'T' + s.start + ':00'), endOf = s => new Date(s.date + 'T' + s.end + ':00');
+const mm = t => +t.slice(0, 2) * 60 + +t.slice(3);
+const hrs = (a, b) => Math.round((mm(b) - mm(a)) / 60 * 100) / 100 + 'h';
+const covered = b => D.slots.filter(s => s.date === b.date && s.start >= b.start && s.end <= b.end);
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 function toast(m, e) { const t = document.createElement('div'); t.className = 'toast' + (e ? ' e' : ''); t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 2800); }
 
@@ -127,7 +141,7 @@ async function refresh() {
 setInterval(() => !document.hidden && refresh(), 5000);
 
 function renderAll() {
-  const seats = D.slots.length * 2, bk = D.bookings.length;
+  const seats = D.slots.length * 2, bk = D.bookings.reduce((n, b) => n + covered(b).length, 0);
   const pend = D.bookings.filter(b => !b.received).length;
   $('stats').innerHTML = [[D.slots.length, 'Total slots'], [bk, 'Booked seats'], [seats - bk, 'Open seats'], [pend, 'Advance pending'], ['Rs ' + D.bookings.filter(b => b.received).reduce((n, b) => n + b.advance, 0).toLocaleString(), 'Advance received']]
     .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
@@ -136,10 +150,10 @@ function renderAll() {
 
 function renderSlots() {
   const by = {}; D.slots.forEach(s => (by[s.date] ||= []).push(s));
-  const bm = {}; D.bookings.forEach(b => bm[b.slot_id + b.console] = b);
+  const bm = {}; D.bookings.forEach(b => covered(b).forEach(s => bm[s.id + b.console] = b));
   $('slotList').innerHTML = Object.keys(by).map(d => `<h3 style="margin:14px 0 4px">${dL(d)}</h3>` + by[d].map(s => {
     const cells = ['fat', 'slim'].map(c => { const b = bm[s.id + c];
-      return b ? `<div class="cell b" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[c]} | ${esc(b.phone)}</small></span><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span></div>`
+      return b ? `<div class="cell b" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[c]} | ${b.slot_id === s.id ? esc(b.phone) + ' | ' + t12(b.start) + ' to ' + t12(b.end) + ' (' + hrs(b.start, b.end) + ')' : 'continued'}</small></span><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span></div>`
         : `<div class="cell"><span>${NAMES[c]}<small>Open</small></span><button class="btn t s" data-book="${s.id}" data-con="${c}">Book</button></div>`; }).join('');
     return `<div class="sl"><div><b>${t12(s.start)}</b><small>to ${t12(s.end)}</small></div>${cells}<button class="btn d s" data-delslot="${s.id}">Delete</button></div>`;
   }).join('')).join('') || '<p style="color:var(--mu)">No slots yet. Add slots above.</p>';
@@ -154,7 +168,7 @@ function renderBookings() {
   l.sort(cmp);
   $('bkList').innerHTML = l.map(b => `<div class="bk-card">
     <div><b>${esc(b.name)}</b><small><a style="color:var(--am)" href="tel:${esc(b.phone)}">${esc(b.phone)}</a></small>${b.notes ? `<small>${esc(b.notes)}</small>` : ''}</div>
-    <div><b>${dL(b.date)}</b><small>${t12(b.start)} to ${t12(b.end)} | ${NAMES[b.console]}</small></div>
+    <div><b>${dL(b.date)}</b><small>${t12(b.start)} to ${t12(b.end)} (${hrs(b.start, b.end)}) | ${NAMES[b.console]}</small></div>
     <div><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span> <small>Rs ${b.advance.toLocaleString()} | Booking: ${esc((b.booked_at || '').replace('T', ' '))}</small></div>
     <div class="row">${b.has_proof ? `<button class="btn g s" data-proof="${b.id}">Screenshot</button>` : ''}<button class="btn g s" data-edit="${b.id}">Edit</button><button class="btn d s" data-delbk="${b.id}">Delete</button></div></div>`).join('') || '<p style="color:var(--mu)">No bookings found.</p>';
 }
@@ -167,10 +181,26 @@ function openDlg(b, slotId, con) {
   $('bslot').value = b ? b.slot_id : slotId; $('bcon').value = b ? b.console : con;
   $('bname').value = b?.name || ''; $('bphone').value = b?.phone || ''; $('badv').value = b?.advance || 0;
   $('bat').value = b?.booked_at || nowLocal(); $('brec').checked = !!b?.received; $('bnotes').value = b?.notes || '';
+  fillEnd(b ? b.end_slot_id : null);
   showPrev(null);
   if (b?.has_proof) api('proof', b.id).then(d => proof === undefined && showPrev(d.proof)).catch(() => {});
   $('dlg').showModal();
 }
+function fillEnd(sel) {
+  const s = D.slots.find(x => x.id == $('bslot').value); if (!s) return;
+  let opts = '', prev = null;
+  for (const x of D.slots.filter(x => x.date === s.date && x.start >= s.start)) {
+    if (prev && x.start !== prev.end) break;
+    opts += `<option value="${x.id}" data-h="${(mm(x.end) - mm(s.start)) / 60}">${t12(x.end)} (${hrs(s.start, x.end)})</option>`; prev = x;
+  }
+  $('bend').innerHTML = opts;
+  if (sel && [...$('bend').options].some(o => o.value == sel)) $('bend').value = sel;
+}
+$('bslot').onchange = () => fillEnd();
+document.querySelectorAll('#dlg [data-h]').forEach(btn => btn.onclick = () => {
+  const o = [...$('bend').options].find(o => Math.abs(o.dataset.h - btn.dataset.h) < .01);
+  if (o) { $('bend').value = o.value; $('berr').textContent = ''; } else $('berr').textContent = 'Not enough continuous slots for ' + btn.dataset.h + ' hour(s) from this start time.';
+});
 function showPrev(src) { $('bprev').hidden = $('brm').hidden = !src; if (src) $('bprev').src = src; }
 function compress(file) {
   return new Promise((res, rej) => {
@@ -183,7 +213,7 @@ $('bfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; 
 $('brm').onclick = () => { proof = ''; $('bfile').value = ''; showPrev(null); };
 $('bcancel').onclick = () => $('dlg').close();
 $('bsave').onclick = async () => {
-  const body = { slot_id: +$('bslot').value, console: $('bcon').value, name: $('bname').value, phone: $('bphone').value, advance: +$('badv').value || 0, received: $('brec').checked, booked_at: $('bat').value, notes: $('bnotes').value };
+  const body = { slot_id: +$('bslot').value, end_slot_id: +$('bend').value, console: $('bcon').value, name: $('bname').value, phone: $('bphone').value, advance: +$('badv').value || 0, received: $('brec').checked, booked_at: $('bat').value, notes: $('bnotes').value };
   if (proof !== undefined) body.proof = proof;
   if (editing) body.id = editing.id;
   $('bsave').disabled = true; $('berr').textContent = '';
@@ -219,6 +249,12 @@ $('addSlots').onclick = async () => {
   $('addSlots').disabled = false;
 };
 
+$('pwBtn').onclick = async () => {
+  $('pwBtn').disabled = true;
+  try { await api('change_password', { current_password: $('cpw').value, new_password: $('npw').value }); $('cpw').value = $('npw').value = ''; toast('Password updated'); }
+  catch (e) { toast(e.message, 1); }
+  $('pwBtn').disabled = false;
+};
 $('lbtn').onclick = login; $('p').addEventListener('keydown', e => e.key === 'Enter' && login());
 $('logout').onclick = logout;
 if (token) start();
