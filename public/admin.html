@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ur-Latn">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -29,17 +29,17 @@
   <div class="stats" id="stats"></div>
 
   <div class="card">
-    <h2>Naye slots banayein</h2>
+    <h2>Create new slots</h2>
     <div class="f">
-      <label>Tareeqa<select id="mode"><option value="single">Ek slot</option><option value="bulk">Bohat se slots (auto)</option></select></label>
+      <label>Mode<select id="mode"><option value="single">Single slot</option><option value="bulk">Multiple slots (auto)</option></select></label>
       <label>Date<input type="date" id="sdate" min="2026-11-19" value="2026-11-19"></label>
       <label id="lS">Start<input type="time" id="sstart" value="13:00"></label>
       <label id="lE">End<input type="time" id="send" value="14:00"></label>
-      <label class="bulk">Ek slot kitne ghante<select id="shrs"><option value="1">1 ghanta</option><option value="1.5">1.5 ghanta</option><option value="2">2 ghante</option><option value="3">3 ghante</option></select></label>
-      <label class="bulk">Kitne din<input type="number" id="sdays" min="1" max="31" value="1"></label>
-      <button class="btn t" id="addSlots">Slots add karein</button>
+      <label class="bulk">Slot length<select id="shrs"><option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option><option value="3">3 hours</option></select></label>
+      <label class="bulk">Number of days<input type="number" id="sdays" min="1" max="31" value="1"></label>
+      <button class="btn t" id="addSlots">Add slots</button>
     </div>
-    <p style="color:var(--mu);font-size:.85rem;margin-top:10px">Booking 19 Nov 2026, 1:00 PM se shuru hoti hai. Auto mode mein Start se End tak slots khud ban jate hain.</p>
+    <p style="color:var(--mu);font-size:.85rem;margin-top:10px">Bookings start on 19 Nov 2026 at 1:00 PM. In auto mode, slots are created from the From time to the To time.</p>
   </div>
 
   <div class="card">
@@ -50,15 +50,15 @@
   <div class="card">
     <h2>Bookings</h2>
     <div class="f" style="margin-bottom:8px">
-      <label>Dhoondein<input id="fq" placeholder="Naam ya phone"></label>
-      <label>Tarteeb<select id="fsort">
-        <option value="slot">Aane wali pehle (slot time)</option>
-        <option value="slotd">Door wali pehle</option>
-        <option value="first">Pehle booking karne wale pehle</option>
-        <option value="last">Latest booking pehle</option></select></label>
-      <label>Kab<select id="fwhen"><option value="up">Aane wali</option><option value="all">Sab</option><option value="past">Guzri hui</option></select></label>
-      <label>PS5<select id="fcon"><option value="">Dono</option><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
-      <label>Advance<select id="fadv"><option value="">Sab</option><option value="1">Mil gaya</option><option value="0">Baqi hai</option></select></label>
+      <label>Search<input id="fq" placeholder="Name or phone"></label>
+      <label>Sort by<select id="fsort">
+        <option value="slot">Upcoming first (slot time)</option>
+        <option value="slotd">Furthest first</option>
+        <option value="first">Earliest booked first</option>
+        <option value="last">Latest booked first</option></select></label>
+      <label>When<select id="fwhen"><option value="up">Upcoming</option><option value="all">All</option><option value="past">Past</option></select></label>
+      <label>PS5<select id="fcon"><option value="">Both</option><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
+      <label>Advance<select id="fadv"><option value="">All</option><option value="1">Received</option><option value="0">Pending</option></select></label>
     </div>
     <div id="bkList"></div>
   </div>
@@ -69,21 +69,21 @@
   <div class="f">
     <label>Slot<select id="bslot"></select></label>
     <label>PS5<select id="bcon"><option value="fat">PS5 Fat</option><option value="slim">PS5 Slim</option></select></label>
-    <label>Customer ka naam<input id="bname"></label>
+    <label>Customer name<input id="bname"></label>
     <label>Phone number<input id="bphone" type="tel" placeholder="03xx xxxxxxx"></label>
     <label>Advance (Rs)<input id="badv" type="number" min="0" value="0"></label>
-    <label>Booking ka waqt<input id="bat" type="datetime-local"></label>
-    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="brec"> Advance mil gaya</label>
+    <label>Booking time<input id="bat" type="datetime-local"></label>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="brec"> Advance received</label>
   </div>
   <label style="margin-top:12px">Description / notes<textarea id="bnotes" rows="2"></textarea></label>
-  <label style="margin-top:12px">Advance ka screenshot<input type="file" id="bfile" accept="image/*"></label>
+  <label style="margin-top:12px">Advance screenshot<input type="file" id="bfile" accept="image/*"></label>
   <img id="bprev" alt="" hidden>
-  <button class="btn d s" id="brm" type="button" hidden>Photo hata dein</button>
+  <button class="btn d s" id="brm" type="button" hidden>Remove photo</button>
   <div class="err" id="berr" style="margin-top:8px"></div>
-  <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn g" id="bcancel">Band karein</button><button class="btn" id="bsave">Save</button></div>
+  <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn g" id="bcancel">Close</button><button class="btn" id="bsave">Save</button></div>
 </dialog>
 
-<dialog id="pdlg"><div class="row" style="justify-content:space-between"><h2>Advance screenshot</h2><button class="btn g s" id="pclose">Band</button></div><div id="pbox"></div></dialog>
+<dialog id="pdlg"><div class="row" style="justify-content:space-between"><h2>Advance screenshot</h2><button class="btn g s" id="pclose">Close</button></div><div id="pbox"></div></dialog>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -103,7 +103,7 @@ async function api(a, body) {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: body !== undefined && a !== 'proof' ? JSON.stringify(body) : undefined, cache: 'no-store'
   });
-  const d = await r.json().catch(() => ({ error: 'Server se jawab nahi aya' }));
+  const d = await r.json().catch(() => ({ error: 'No response from server' }));
   if (r.status === 401 && a !== 'login') { logout(); throw new Error(d.error); }
   if (!r.ok) throw new Error(d.error || 'Error');
   return d;
@@ -129,7 +129,7 @@ setInterval(() => !document.hidden && refresh(), 5000);
 function renderAll() {
   const seats = D.slots.length * 2, bk = D.bookings.length;
   const pend = D.bookings.filter(b => !b.received).length;
-  $('stats').innerHTML = [[D.slots.length, 'Total slots'], [bk, 'Booked seats'], [seats - bk, 'Khali seats'], [pend, 'Advance baqi'], ['Rs ' + D.bookings.filter(b => b.received).reduce((n, b) => n + b.advance, 0).toLocaleString(), 'Advance mila']]
+  $('stats').innerHTML = [[D.slots.length, 'Total slots'], [bk, 'Booked seats'], [seats - bk, 'Open seats'], [pend, 'Advance pending'], ['Rs ' + D.bookings.filter(b => b.received).reduce((n, b) => n + b.advance, 0).toLocaleString(), 'Advance received']]
     .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
   renderSlots(); renderBookings();
 }
@@ -139,10 +139,10 @@ function renderSlots() {
   const bm = {}; D.bookings.forEach(b => bm[b.slot_id + b.console] = b);
   $('slotList').innerHTML = Object.keys(by).map(d => `<h3 style="margin:14px 0 4px">${dL(d)}</h3>` + by[d].map(s => {
     const cells = ['fat', 'slim'].map(c => { const b = bm[s.id + c];
-      return b ? `<div class="cell b" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[c]} | ${esc(b.phone)}</small></span><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance mila' : 'Advance baqi'}</span></div>`
-        : `<div class="cell"><span>${NAMES[c]}<small>Khali</small></span><button class="btn t s" data-book="${s.id}" data-con="${c}">Book</button></div>`; }).join('');
-    return `<div class="sl"><div><b>${t12(s.start)}</b><small>se ${t12(s.end)}</small></div>${cells}<button class="btn d s" data-delslot="${s.id}">Delete</button></div>`;
-  }).join('')).join('') || '<p style="color:var(--mu)">Abhi koi slot nahi. Upar se slots add karein.</p>';
+      return b ? `<div class="cell b" data-edit="${b.id}"><span><b>${esc(b.name)}</b><small>${NAMES[c]} | ${esc(b.phone)}</small></span><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span></div>`
+        : `<div class="cell"><span>${NAMES[c]}<small>Open</small></span><button class="btn t s" data-book="${s.id}" data-con="${c}">Book</button></div>`; }).join('');
+    return `<div class="sl"><div><b>${t12(s.start)}</b><small>to ${t12(s.end)}</small></div>${cells}<button class="btn d s" data-delslot="${s.id}">Delete</button></div>`;
+  }).join('')).join('') || '<p style="color:var(--mu)">No slots yet. Add slots above.</p>';
 }
 
 function renderBookings() {
@@ -154,15 +154,15 @@ function renderBookings() {
   l.sort(cmp);
   $('bkList').innerHTML = l.map(b => `<div class="bk-card">
     <div><b>${esc(b.name)}</b><small><a style="color:var(--am)" href="tel:${esc(b.phone)}">${esc(b.phone)}</a></small>${b.notes ? `<small>${esc(b.notes)}</small>` : ''}</div>
-    <div><b>${dL(b.date)}</b><small>${t12(b.start)} se ${t12(b.end)} | ${NAMES[b.console]}</small></div>
-    <div><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance mila' : 'Advance baqi'}</span> <small>Rs ${b.advance.toLocaleString()} | Booking: ${esc((b.booked_at || '').replace('T', ' '))}</small></div>
-    <div class="row">${b.has_proof ? `<button class="btn g s" data-proof="${b.id}">Screenshot</button>` : ''}<button class="btn g s" data-edit="${b.id}">Edit</button><button class="btn d s" data-delbk="${b.id}">Delete</button></div></div>`).join('') || '<p style="color:var(--mu)">Koi booking nahi mili.</p>';
+    <div><b>${dL(b.date)}</b><small>${t12(b.start)} to ${t12(b.end)} | ${NAMES[b.console]}</small></div>
+    <div><span class="pill ${b.received ? 'free' : 'am'}">${b.received ? 'Advance received' : 'Advance pending'}</span> <small>Rs ${b.advance.toLocaleString()} | Booking: ${esc((b.booked_at || '').replace('T', ' '))}</small></div>
+    <div class="row">${b.has_proof ? `<button class="btn g s" data-proof="${b.id}">Screenshot</button>` : ''}<button class="btn g s" data-edit="${b.id}">Edit</button><button class="btn d s" data-delbk="${b.id}">Delete</button></div></div>`).join('') || '<p style="color:var(--mu)">No bookings found.</p>';
 }
 
 /* booking dialog */
 function openDlg(b, slotId, con) {
   editing = b; proof = undefined; $('berr').textContent = ''; $('bfile').value = '';
-  $('dt').textContent = b ? 'Booking edit karein' : 'Nayi booking';
+  $('dt').textContent = b ? 'Edit booking' : 'New booking';
   $('bslot').innerHTML = D.slots.map(s => `<option value="${s.id}">${dL(s.date)} ${t12(s.start)} - ${t12(s.end)}</option>`).join('');
   $('bslot').value = b ? b.slot_id : slotId; $('bcon').value = b ? b.console : con;
   $('bname').value = b?.name || ''; $('bphone').value = b?.phone || ''; $('badv').value = b?.advance || 0;
@@ -176,7 +176,7 @@ function compress(file) {
   return new Promise((res, rej) => {
     const img = new Image(), u = URL.createObjectURL(file);
     img.onload = () => { const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', .72)); };
-    img.onerror = () => rej(new Error('Photo read nahi hui')); img.src = u;
+    img.onerror = () => rej(new Error('Could not read the photo')); img.src = u;
   });
 }
 $('bfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { proof = await compress(f); showPrev(proof); } catch (x) { $('berr').textContent = x.message; } };
@@ -187,7 +187,7 @@ $('bsave').onclick = async () => {
   if (proof !== undefined) body.proof = proof;
   if (editing) body.id = editing.id;
   $('bsave').disabled = true; $('berr').textContent = '';
-  try { await api(editing ? 'update_booking' : 'book', body); $('dlg').close(); toast('Save ho gaya'); refresh(); }
+  try { await api(editing ? 'update_booking' : 'book', body); $('dlg').close(); toast('Saved'); refresh(); }
   catch (e) { $('berr').textContent = e.message; }
   $('bsave').disabled = false;
 };
@@ -200,21 +200,21 @@ document.addEventListener('click', async e => {
     if (g('book')) openDlg(null, +g('book'), g('con'));
     else if (g('edit')) openDlg(D.bookings.find(b => b.id == g('edit')));
     else if (g('proof')) { const d = await api('proof', g('proof')); $('pbox').innerHTML = `<img src="${d.proof}" alt="Advance screenshot">`; $('pdlg').showModal(); }
-    else if (g('delbk') && confirm('Ye booking delete karein?')) { await api('del_booking', { id: +g('delbk') }); toast('Booking delete ho gayi'); refresh(); }
-    else if (g('delslot') && confirm('Ye slot delete karein?')) { await api('del_slot', { id: +g('delslot') }); toast('Slot delete ho gaya'); refresh(); }
+    else if (g('delbk') && confirm('Delete this booking?')) { await api('del_booking', { id: +g('delbk') }); toast('Booking deleted'); refresh(); }
+    else if (g('delslot') && confirm('Delete this slot?')) { await api('del_slot', { id: +g('delslot') }); toast('Slot deleted'); refresh(); }
   } catch (x) { toast(x.message, 1); }
 });
 $('pclose').onclick = () => $('pdlg').close();
 ['fq', 'fsort', 'fwhen', 'fcon', 'fadv'].forEach(i => $(i).addEventListener('input', renderBookings));
 
 /* add slots */
-function modeUI() { const bulk = $('mode').value === 'bulk'; document.querySelectorAll('.bulk').forEach(x => x.hidden = !bulk); $('lS').firstChild.textContent = bulk ? 'Shuru (from)' : 'Start'; $('lE').firstChild.textContent = bulk ? 'Khatam (to)' : 'End'; }
+function modeUI() { const bulk = $('mode').value === 'bulk'; document.querySelectorAll('.bulk').forEach(x => x.hidden = !bulk); $('lS').firstChild.textContent = bulk ? 'From' : 'Start'; $('lE').firstChild.textContent = bulk ? 'To' : 'End'; }
 $('mode').onchange = () => { $('send').value = $('mode').value === 'bulk' ? '23:00' : '14:00'; modeUI(); }; modeUI();
 $('addSlots').onclick = async () => {
   $('addSlots').disabled = true;
   try {
     const d = await api('add_slots', { mode: $('mode').value, date: $('sdate').value, start: $('sstart').value, end: $('send').value, from: $('sstart').value, to: $('send').value, hours: $('shrs').value, days: $('sdays').value });
-    toast(d.added + ' slot add hue' + (d.skipped ? ', ' + d.skipped + ' pehle se thay' : '')); refresh();
+    toast(d.added + ' slot(s) added' + (d.skipped ? ', ' + d.skipped + ' already existed' : '')); refresh();
   } catch (e) { toast(e.message, 1); }
   $('addSlots').disabled = false;
 };

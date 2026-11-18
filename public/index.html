@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ur-Latn">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -11,11 +11,11 @@
 <body>
 <header class="hero"><div class="wrap">
   <div class="live"><span class="dot" id="dot"></span><span id="liveTxt">Live slots</span></div>
-  <h1>GTA 6 khelne ki booking</h1>
-  <p>Neeche dekhein kaun sa slot khali hai. Do PS5 hain, is liye ek time par 2 log khel sakte hain. Page khud update hota rehta hai.</p>
+  <h1>Book your GTA 6 session</h1>
+  <p>See which slots are open below. We have two PS5 consoles, so two players can play at the same time. This page updates by itself.</p>
 </div></header>
 <main class="wrap">
-  <div class="note">Booking confirm karne ke liye <b>advance payment</b> zaroori hai. Khali slot chun kar WhatsApp par message karein.</div>
+  <div class="note">An <b>advance payment</b> is required to confirm your booking. Pick an open slot and message us on WhatsApp.</div>
   <div class="tabs" id="tabs" role="tablist"></div>
   <div class="grid" id="grid" aria-live="polite"></div>
 </main>
@@ -36,20 +36,20 @@ function render() {
   if (!days.includes(day)) day = days[0] || null;
   const tabs = days.map(d => {
     const free = live.filter(s => s.date === d).reduce((n, s) => n + 2 - (s.taken ? s.taken.split(',').length : 0), 0);
-    return `<button class="tab ${d === day ? 'on' : ''}" role="tab" data-d="${d}">${dLabel(d)}<small>${free} seat khali</small></button>`;
+    return `<button class="tab ${d === day ? 'on' : ''}" role="tab" data-d="${d}">${dLabel(d)}<small>${free} open</small></button>`;
   }).join('');
   let g = '';
   for (const s of live.filter(s => s.date === day)) {
     const taken = s.taken ? s.taken.split(',') : [], left = 2 - taken.length;
-    const rows = ['fat', 'slim'].map(c => `<div class="con"><span>${NAMES[c]}</span><span class="pill ${taken.includes(c) ? 'bk' : 'free'}">${taken.includes(c) ? 'Booked' : 'Khali'}</span></div>`).join('');
-    const msg = encodeURIComponent(`Assalam o Alaikum, mujhe GTA 6 ka slot book karna hai: ${dLabel(s.date)}, ${t12(s.start)} se ${t12(s.end)}`);
-    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(s.start)} <small>se ${t12(s.end)}</small></div>${rows}` +
-      (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 seat khali' : '1 seat khali'}: WhatsApp karein</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Slot full hai</span>`) + '</article>';
+    const rows = ['fat', 'slim'].map(c => `<div class="con"><span>${NAMES[c]}</span><span class="pill ${taken.includes(c) ? 'bk' : 'free'}">${taken.includes(c) ? 'Booked' : 'Available'}</span></div>`).join('');
+    const msg = encodeURIComponent(`Hello, I would like to book a GTA 6 slot: ${dLabel(s.date)}, ${t12(s.start)} to ${t12(s.end)}`);
+    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(s.start)} <small>to ${t12(s.end)}</small></div>${rows}` +
+      (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 spots open' : '1 spot open'}: book on WhatsApp</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Slot full</span>`) + '</article>';
   }
-  const out = tabs + '|' + (g || (days.length ? '' : '<div class="empty">Abhi koi slot available nahi. Thori der baad check karein.</div>'));
+  const out = tabs + '|' + (g || (days.length ? '' : '<div class="empty">No slots available right now. Please check back soon.</div>'));
   if (out === html) return;
   html = out;
-  $('tabs').innerHTML = tabs; $('grid').innerHTML = g || '<div class="empty">Abhi koi slot available nahi. Thori der baad check karein.</div>';
+  $('tabs').innerHTML = tabs; $('grid').innerHTML = g || '<div class="empty">No slots available right now. Please check back soon.</div>';
 }
 
 async function load() {
@@ -60,7 +60,7 @@ async function load() {
     $('dot').classList.remove('off'); $('liveTxt').textContent = 'Live slots';
     $('upd').textContent = new Date().toLocaleTimeString('en-GB');
     render();
-  } catch { $('dot').classList.add('off'); $('liveTxt').textContent = 'Connection ka masla, dobara koshish ho rahi hai'; }
+  } catch { $('dot').classList.add('off'); $('liveTxt').textContent = 'Connection problem, retrying...'; }
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) { day = b.dataset.d; render(); } });
 load(); setInterval(load, 3000);

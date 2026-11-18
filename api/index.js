@@ -48,12 +48,12 @@ module.exports = async (req, res) => {
     if (a === 'slots') return out(200, { slots: await q(SLOTS_SQL), now: Date.now() });
 
     if (a === 'login') {
-      if (req.method !== 'POST') return out(405, { error: 'POST chahiye' });
+      if (req.method !== 'POST') return out(405, { error: 'POST required' });
       if (safeEq(b.username, ADMIN_USER) & safeEq(b.password, ADMIN_PASS)) return out(200, { token: makeToken() });
-      return out(401, { error: 'Username ya password ghalat hai' });
+      return out(401, { error: 'Incorrect username or password' });
     }
 
-    if (!authed(req)) return out(401, { error: 'Dobara login karein' });
+    if (!authed(req)) return out(401, { error: 'Please log in again' });
 
     if (a === 'admin_data') {
       const bookings = await q(`SELECT b.id,b.slot_id,b.console,b.name,b.phone,b.advance,b.received,b.notes,b.booked_at,b.created_at,(b.proof!='') has_proof,s.date,s.start,s.end FROM bookings b JOIN slots s ON s.id=b.slot_id ORDER BY s.date,s.start`);
@@ -65,17 +65,17 @@ module.exports = async (req, res) => {
       return out(200, { proof: r[0]?.proof || '' });
     }
 
-    if (req.method !== 'POST') return out(405, { error: 'POST chahiye' });
+    if (req.method !== 'POST') return out(405, { error: 'POST required' });
 
     if (a === 'add_slots') {
       const date = str(b.date, 10), note = str(b.note, 100), list = [];
       if (b.mode === 'bulk') {
         const from = str(b.from, 5), to = str(b.to, 5), dur = Math.round(+b.hours * 60), days = Math.min(Math.max(+b.days || 1, 1), 31);
-        if (!(dur >= 30) || !/^\d\d:\d\d$/.test(from) || !/^\d\d:\d\d$/.test(to)) return out(400, { error: 'From, to aur duration sahi likhein' });
+        if (!(dur >= 30) || !/^\d\d:\d\d$/.test(from) || !/^\d\d:\d\d$/.test(to)) return out(400, { error: 'Enter a valid From, To and slot length' });
         for (let d = 0; d < days; d++) for (let m = mins(from); m + dur <= mins(to); m += dur) list.push([addDays(date, d), hhmm(m), hhmm(m + dur)]);
       } else list.push([date, str(b.start, 5), str(b.end, 5)]);
       const good = list.filter(s => validSlot(...s));
-      if (!good.length) return out(400, { error: 'Slots 19 Nov 2026 1:00 PM ya uske baad ke hon, aur end time start se baad ho' });
+      if (!good.length) return out(400, { error: 'Slots must start on or after 19 Nov 2026, 1:00 PM, and the end time must be after the start time' });
       const rs = await db.batch(good.map(s => ({ sql: 'INSERT OR IGNORE INTO slots(date,start,end,note) VALUES(?,?,?,?)', args: [...s, note] })), 'write');
       const added = rs.reduce((n, r) => n + r.rowsAffected, 0);
       return out(200, { added, skipped: list.length - added });
@@ -84,7 +84,7 @@ module.exports = async (req, res) => {
     if (a === 'del_slot') {
       const id = +b.id;
       const n = (await q('SELECT COUNT(*) c FROM bookings WHERE slot_id=?', [id]))[0].c;
-      if (n) return out(409, { error: 'Is slot mein booking hai. Pehle booking delete karein.' });
+      if (n) return out(409, { error: 'This slot has a booking. Delete the booking first.' });
       await db.execute({ sql: 'DELETE FROM slots WHERE id=?', args: [id] });
       return out(200, { ok: true });
     }
@@ -100,11 +100,11 @@ module.exports = async (req, res) => {
       if (b.received !== undefined || isNew) f.received = b.received ? 1 : 0;
       if (b.notes !== undefined || isNew) f.notes = str(b.notes, 500);
       if (b.booked_at !== undefined || isNew) f.booked_at = str(b.booked_at, 16) || new Date().toISOString().slice(0, 16);
-      if (b.proof !== undefined) { if (!validProof(b.proof)) return out(400, { error: 'Photo sahi nahi ya bohat bari hai' }); f.proof = b.proof; }
-      if ('console' in f && !CONSOLES.includes(f.console)) return out(400, { error: 'PS5 Fat ya PS5 Slim chunein' });
-      if ('name' in f && !f.name) return out(400, { error: 'Customer ka naam likhein' });
-      if ('phone' in f && f.phone.replace(/\D/g, '').length < 10) return out(400, { error: 'Phone number sahi likhein' });
-      if ('slot_id' in f && !(await q('SELECT 1 FROM slots WHERE id=?', [f.slot_id])).length) return out(400, { error: 'Slot nahi mila' });
+      if (b.proof !== undefined) { if (!validProof(b.proof)) return out(400, { error: 'Invalid photo or file too large' }); f.proof = b.proof; }
+      if ('console' in f && !CONSOLES.includes(f.console)) return out(400, { error: 'Choose PS5 Fat or PS5 Slim' });
+      if ('name' in f && !f.name) return out(400, { error: 'Enter the customer name' });
+      if ('phone' in f && f.phone.replace(/\D/g, '').length < 10) return out(400, { error: 'Enter a valid phone number' });
+      if ('slot_id' in f && !(await q('SELECT 1 FROM slots WHERE id=?', [f.slot_id])).length) return out(400, { error: 'Slot not found' });
       try {
         if (isNew) {
           const k = Object.keys(f);
@@ -115,7 +115,7 @@ module.exports = async (req, res) => {
         if (k.length) await db.execute({ sql: `UPDATE bookings SET ${k.map(x => x + '=?')} WHERE id=?`, args: [...k.map(x => f[x]), +b.id] });
         return out(200, { ok: true });
       } catch (e) {
-        if (/UNIQUE/i.test(e.message)) return out(409, { error: 'Ye PS5 is slot mein pehle se booked hai' });
+        if (/UNIQUE/i.test(e.message)) return out(409, { error: 'This PS5 is already booked for this slot' });
         throw e;
       }
     }
