@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ur-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GTA 6 Booking | Gaming Zone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <div class="live"><span class="dot" id="dot"></span><span id="liveTxt">Live slots</span></div>
+  <h1>GTA 6 khelne ki booking</h1>
+  <p>Neeche dekhein kaun sa slot khali hai. Do PS5 hain, is liye ek time par 2 log khel sakte hain. Page khud update hota rehta hai.</p>
+</div></header>
+<main class="wrap">
+  <div class="note">Booking confirm karne ke liye <b>advance payment</b> zaroori hai. Khali slot chun kar WhatsApp par message karein.</div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="grid" id="grid" aria-live="polite"></div>
+</main>
+<footer><div class="wrap">Last update: <span id="upd">-</span> | <a href="/admin">Admin</a></div></footer>
+<script>
+const WHATSAPP = '923000000000'; // apna number yahan likhein (92 se shuru, bina + ke)
+const NAMES = { fat: 'PS5 Fat', slim: 'PS5 Slim' };
+const $ = id => document.getElementById(id);
+let slots = [], day = null, html = '';
+
+const t12 = t => { let [h, m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(m).padStart(2, '0') + ' ' + s; };
+const dLabel = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const over = s => new Date(s.date + 'T' + s.end + ':00') <= new Date();
+
+function render() {
+  const live = slots.filter(s => !over(s));
+  const days = [...new Set(live.map(s => s.date))];
+  if (!days.includes(day)) day = days[0] || null;
+  const tabs = days.map(d => {
+    const free = live.filter(s => s.date === d).reduce((n, s) => n + 2 - (s.taken ? s.taken.split(',').length : 0), 0);
+    return `<button class="tab ${d === day ? 'on' : ''}" role="tab" data-d="${d}">${dLabel(d)}<small>${free} seat khali</small></button>`;
+  }).join('');
+  let g = '';
+  for (const s of live.filter(s => s.date === day)) {
+    const taken = s.taken ? s.taken.split(',') : [], left = 2 - taken.length;
+    const rows = ['fat', 'slim'].map(c => `<div class="con"><span>${NAMES[c]}</span><span class="pill ${taken.includes(c) ? 'bk' : 'free'}">${taken.includes(c) ? 'Booked' : 'Khali'}</span></div>`).join('');
+    const msg = encodeURIComponent(`Assalam o Alaikum, mujhe GTA 6 ka slot book karna hai: ${dLabel(s.date)}, ${t12(s.start)} se ${t12(s.end)}`);
+    g += `<article class="slot ${left ? '' : 'full'}"><div class="t">${t12(s.start)} <small>se ${t12(s.end)}</small></div>${rows}` +
+      (left ? `<a class="cta" href="https://wa.me/${WHATSAPP}?text=${msg}" target="_blank" rel="noopener">${left === 2 ? '2 seat khali' : '1 seat khali'}: WhatsApp karein</a>` : `<span class="pill bk" style="text-align:center;padding:9px">Slot full hai</span>`) + '</article>';
+  }
+  const out = tabs + '|' + (g || (days.length ? '' : '<div class="empty">Abhi koi slot available nahi. Thori der baad check karein.</div>'));
+  if (out === html) return;
+  html = out;
+  $('tabs').innerHTML = tabs; $('grid').innerHTML = g || '<div class="empty">Abhi koi slot available nahi. Thori der baad check karein.</div>';
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api?a=slots', { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    slots = (await r.json()).slots;
+    $('dot').classList.remove('off'); $('liveTxt').textContent = 'Live slots';
+    $('upd').textContent = new Date().toLocaleTimeString('en-GB');
+    render();
+  } catch { $('dot').classList.add('off'); $('liveTxt').textContent = 'Connection ka masla, dobara koshish ho rahi hai'; }
+}
+$('tabs').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) { day = b.dataset.d; render(); } });
+load(); setInterval(load, 3000);
+document.addEventListener('visibilitychange', () => !document.hidden && load());
+</script>
+</body>
+</html>
